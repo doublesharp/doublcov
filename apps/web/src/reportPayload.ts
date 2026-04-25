@@ -342,9 +342,7 @@ function sanitizeTotals(input: unknown): CoverageTotals {
 }
 
 function sanitizeNumberArray(input: unknown): number[] {
-  return Array.isArray(input)
-    ? input.map(sanitizePositiveInteger).filter((value) => value > 0)
-    : [];
+  return Array.isArray(input) ? input.filter(isPositiveInteger) : [];
 }
 
 function sanitizeNumberRecord(input: unknown): Record<string, number> {
@@ -370,9 +368,11 @@ function sanitizeNumber(input: unknown): number {
 }
 
 function sanitizePositiveInteger(input: unknown): number {
-  return typeof input === "number" && Number.isInteger(input) && input > 0
-    ? input
-    : 1;
+  return isPositiveInteger(input) ? input : 1;
+}
+
+function isPositiveInteger(input: unknown): input is number {
+  return typeof input === "number" && Number.isInteger(input) && input > 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
