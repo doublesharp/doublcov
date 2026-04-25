@@ -131,7 +131,7 @@ function detectSolidityAssemblyLines(lines: string[]): IgnoredLine[] {
 
   for (const [index, text] of lines.entries()) {
     const lineNumber = index + 1;
-    const stripped = stripLineComment(text);
+    const stripped = stripStringsAndComments(text);
 
     if (!inAssembly && /\bassembly(?:\s*\([^)]*\))?\s*\{/.test(stripped)) {
       inAssembly = true;
@@ -166,9 +166,32 @@ function normalizeExtension(extension: string): string {
   return trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
 }
 
-function stripLineComment(line: string): string {
-  const commentStart = line.indexOf("//");
-  return commentStart === -1 ? line : line.slice(0, commentStart);
+function stripStringsAndComments(line: string): string {
+  // Strip out double- and single-quoted string literals (with backslash escapes)
+  // and trailing line comments so brace-tracking only sees real code.
+  let result = "";
+  let index = 0;
+  while (index < line.length) {
+    const char = line[index];
+    if (char === "/" && line[index + 1] === "/") break;
+    if (char === '"' || char === "'") {
+      const quote = char;
+      index += 1;
+      while (index < line.length && line[index] !== quote) {
+        if (line[index] === "\\" && index + 1 < line.length) {
+          index += 2;
+          continue;
+        }
+        index += 1;
+      }
+      // Skip the closing quote (if present) without emitting it.
+      if (index < line.length) index += 1;
+      continue;
+    }
+    result += char;
+    index += 1;
+  }
+  return result;
 }
 
 function countChar(value: string, char: string): number {

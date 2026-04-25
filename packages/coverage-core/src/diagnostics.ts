@@ -58,7 +58,23 @@ export function parseDiagnostics(
       ];
     }
 
-    return parser.parse(input.content).map((diagnostic, diagnosticIndex) => ({
+    let parsed: CoverageDiagnostic[];
+    try {
+      parsed = parser.parse(input.content);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      return [
+        {
+          id: `diagnostic-parser-${inputIndex + 1}-error`,
+          source: input.parser,
+          severity: "warning",
+          message: `Diagnostic parser "${input.parser}" failed: ${message}`,
+        } satisfies CoverageDiagnostic,
+      ];
+    }
+
+    return parsed.map((diagnostic, diagnosticIndex) => ({
       ...diagnostic,
       id: `${input.parser}-${inputIndex + 1}-${diagnosticIndex + 1}`,
     }));

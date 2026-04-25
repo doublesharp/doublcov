@@ -39,13 +39,26 @@ export function parseLcov(input: string): LcovRecord[] {
 
     switch (key) {
       case "SF":
+        // If a new SF appears before end_of_record, flush the prior record.
+        if (current.sourceFile && current.sourceFile !== value) {
+          flushPendingHits(current, pendingHits);
+          records.push(finalizeRecord(current));
+          current = createRecord();
+          functionLines.clear();
+          pendingHits = new Map();
+        }
         current.sourceFile = value;
         break;
       case "DA": {
         const [lineNumber, hits] = value.split(",");
         const parsedLine = Number(lineNumber);
         const parsedHits = Number(hits);
-        if (Number.isFinite(parsedLine) && Number.isFinite(parsedHits)) {
+        if (
+          Number.isInteger(parsedLine) &&
+          parsedLine >= 1 &&
+          Number.isInteger(parsedHits) &&
+          parsedHits >= 0
+        ) {
           current.lines.set(parsedLine, parsedHits);
         }
         break;
@@ -165,6 +178,9 @@ function parseBrdaTaken(
   value: string | undefined,
 ): number | null | typeof INVALID_TAKEN {
   if (value === undefined || value === "-") return null;
+  // An empty taken slot (BRDA:1,0,0,) is malformed — Number("") yields 0 which
+  // would silently masquerade as a not-taken branch. Reject it instead.
+  if (value === "") return INVALID_TAKEN;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : INVALID_TAKEN;
 }
