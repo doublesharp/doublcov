@@ -7,7 +7,6 @@ import {
 import type {
   CoverageReport,
   CoverageHookContribution,
-  CoverageTheme,
   IgnoredLine,
   SourceFileCoverage,
   SourceFilePayload,
@@ -30,6 +29,23 @@ import {
 import { builtInThemes, themeMode, themeTokens } from "./themes";
 import { parseReportPayload, parseSourcePayload } from "./reportPayload";
 import { readSetting, writeSetting } from "./storage";
+import {
+  buildHashFragment,
+  coverageClass as coverageClassForStatus,
+  displayUncoveredItemLabel,
+  hookMatchesFile,
+  isEditableTarget,
+  mergeThemes,
+  parseBoundedInteger,
+  parseHashState,
+  percent,
+  selectionClass as selectionClassForLine,
+  sortHooks,
+} from "./appHelpers";
+import {
+  readEmbeddedReportPayload,
+  readEmbeddedSourcePayloadsRecord,
+} from "./embeddedPayloads";
 
 const report = ref<CoverageReport | null>(null);
 const selectedFileId = ref("");
@@ -68,8 +84,6 @@ const highlightedSourceTokens = ref<Record<number, SyntaxToken[]>>({});
 const highlightRequestId = ref(0);
 const navigatorRowHeight = 74;
 const navigatorOverscan = 6;
-const embeddedReportElementId = "doublcov-report-data";
-const embeddedSourcesElementId = "doublcov-source-data";
 let embeddedSources: Record<string, unknown> | null | undefined;
 
 const selectedFile = computed(
@@ -399,47 +413,8 @@ function applyDefaultReportTheme(): void {
   applyTheme();
 }
 
-function mergeThemes(
-  baseThemes: CoverageTheme[],
-  customThemes: CoverageTheme[],
-): CoverageTheme[] {
-  const themesById = new Map<string, CoverageTheme>();
-  for (const candidate of [...baseThemes, ...customThemes]) {
-    if (!candidate.id || !candidate.label) continue;
-    const existing = themesById.get(candidate.id);
-    themesById.set(candidate.id, {
-      ...existing,
-      ...candidate,
-      tokens: {
-        ...(existing?.tokens ?? {}),
-        ...candidate.tokens,
-      },
-    });
-  }
-  return [...themesById.values()];
-}
-
-function sortHooks(
-  hooks: CoverageHookContribution[],
-): CoverageHookContribution[] {
-  return [...hooks].sort(
-    (a, b) =>
-      (a.priority ?? 100) - (b.priority ?? 100) ||
-      a.label.localeCompare(b.label),
-  );
-}
-
 function hookMatchesSelectedFile(hook: CoverageHookContribution): boolean {
-  const file = selectedFile.value;
-  if (!file) return false;
-  if (
-    hook.filePath &&
-    hook.filePath !== file.path &&
-    hook.filePath !== file.displayPath
-  )
-    return false;
-  if (hook.language && hook.language !== file.language) return false;
-  return true;
+  return hookMatchesFile(hook, selectedFile.value);
 }
 
 function cycleTheme(): void {
@@ -471,7 +446,7 @@ async function loadSelectedSource(): Promise<void> {
 }
 
 async function readReportPayload(): Promise<unknown> {
-  const embeddedPayload = readEmbeddedJsonElement(embeddedReportElementId);
+  const embeddedPayload = readEmbeddedReportPayload();
   if (embeddedPayload !== undefined) return embeddedPayload;
 
   const response = await fetch("data/report.json");
@@ -483,24 +458,8 @@ async function readReportPayload(): Promise<unknown> {
 function readEmbeddedSourcePayload(
   sourceDataPath: string,
 ): unknown | undefined {
-  embeddedSources ??= readEmbeddedSourcePayloads();
+  embeddedSources ??= readEmbeddedSourcePayloadsRecord();
   return embeddedSources?.[sourceDataPath];
-}
-
-function readEmbeddedSourcePayloads(): Record<string, unknown> | null {
-  const payload = readEmbeddedJsonElement(embeddedSourcesElementId);
-  if (!isUnknownRecord(payload)) return null;
-  return payload;
-}
-
-function readEmbeddedJsonElement(id: string): unknown | undefined {
-  const text = document.getElementById(id)?.textContent;
-  if (!text) return undefined;
-  return JSON.parse(text);
-}
-
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function selectFile(
@@ -767,16 +726,6 @@ async function handleKeyboardShortcut(event: KeyboardEvent): Promise<void> {
   }
 }
 
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target.isContentEditable ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-  );
-}
-
 async function scrollToSelectedLine(
   lineNumber = selectedLine.value,
 ): Promise<void> {
@@ -811,28 +760,15 @@ async function scrollToSelectedLine(
 }
 
 function coverageClass(lineNumber: number): string {
-  const status = lineCoverage.value.get(lineNumber)?.status ?? "neutral";
-  return {
-    covered: "bg-[var(--covered)]",
-    partial: "bg-[var(--partial)]",
-    uncovered: "bg-[var(--uncovered)]",
-    ignored: "ignored-line",
-    neutral: "",
-  }[status];
+  return coverageClassForStatus(lineCoverage.value.get(lineNumber)?.status);
 }
 
 function selectionClass(lineNumber: number): string {
-  const range = selectedUncoveredRange.value;
-  if (!range) return selectedLine.value === lineNumber ? "selected-line" : "";
-  if (lineNumber < range.start || lineNumber > range.end) return "";
-
-  return [
-    "selected-uncovered-section",
-    lineNumber === range.start ? "selected-uncovered-section-start" : "",
-    lineNumber === range.end ? "selected-uncovered-section-end" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return selectionClassForLine(
+    lineNumber,
+    selectedLine.value,
+    selectedUncoveredRange.value,
+  );
 }
 
 function hitLabel(lineNumber: number): string {
@@ -848,25 +784,8 @@ function ignoredLineShortLabel(lineNumber: number): string {
   return "ign";
 }
 
-function displayUncoveredItemLabel(item: UncoveredItem): string {
-  if (item.kind !== "function" || !isLikelyMangledSymbol(item.label)) {
-    return item.label;
-  }
-  return `Function at line ${item.line}`;
-}
-
 function displayUncoveredItemPath(item: UncoveredItem): string {
   return filesById.value.get(item.fileId)?.displayPath ?? item.filePath;
-}
-
-function isLikelyMangledSymbol(value: string): boolean {
-  return (
-    /^_R[A-Za-z0-9_.$]+$/.test(value) ||
-    /^_Z[A-Za-z0-9_.$]+/.test(value) ||
-    /^__Z[A-Za-z0-9_.$]+/.test(value) ||
-    /^\?[A-Za-z_@$?][A-Za-z0-9_@$?]*@@/.test(value) ||
-    /^_?\$[sS][A-Za-z0-9_.$]+/.test(value)
-  );
 }
 
 function highlightedLine(line: {
@@ -882,29 +801,26 @@ function highlightedLine(line: {
   );
 }
 
-function percent(value: number): string {
-  return `${value.toFixed(2)}%`;
-}
-
 function readHashState(): void {
-  const params = new URLSearchParams(location.hash.replace(/^#/, ""));
-  selectedFileId.value = params.get("file") ?? "";
-  selectedLine.value = parsePositiveInteger(params.get("line"));
-  selectedKind.value = parseUncoveredKind(params.get("kind"));
-  search.value = params.get("q") ?? "";
-  uncoveredOnly.value = params.get("uncovered") !== "0";
-  navigatorCurrentFileOnly.value = params.get("navFile") !== "0";
+  const state = parseHashState(location.hash);
+  selectedFileId.value = state.selectedFileId;
+  selectedLine.value = state.selectedLine;
+  selectedKind.value = state.selectedKind;
+  search.value = state.search;
+  uncoveredOnly.value = state.uncoveredOnly;
+  navigatorCurrentFileOnly.value = state.navigatorCurrentFileOnly;
 }
 
 function writeHashState(): void {
-  const params = new URLSearchParams();
-  if (selectedFileId.value) params.set("file", selectedFileId.value);
-  if (selectedLine.value) params.set("line", String(selectedLine.value));
-  if (selectedKind.value !== "all") params.set("kind", selectedKind.value);
-  if (search.value) params.set("q", search.value);
-  if (!uncoveredOnly.value) params.set("uncovered", "0");
-  if (!navigatorCurrentFileOnly.value) params.set("navFile", "0");
-  history.replaceState(null, "", `#${params.toString()}`);
+  const fragment = buildHashFragment({
+    selectedFileId: selectedFileId.value,
+    selectedLine: selectedLine.value,
+    selectedKind: selectedKind.value,
+    search: search.value,
+    uncoveredOnly: uncoveredOnly.value,
+    navigatorCurrentFileOnly: navigatorCurrentFileOnly.value,
+  });
+  history.replaceState(null, "", `#${fragment}`);
 }
 
 function readStoredNavigatorHeight(): number {
@@ -925,29 +841,6 @@ function readStoredSidePanelWidth(panel: "left" | "right"): number {
   );
 }
 
-function parsePositiveInteger(value: string | null): number | null {
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function parseBoundedInteger(
-  value: string | null,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
-  if (!value) return fallback;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed)) return fallback;
-  return Math.min(Math.max(parsed, min), max);
-}
-
-function parseUncoveredKind(value: string | null): UncoveredKind | "all" {
-  if (value === "line" || value === "branch" || value === "function")
-    return value;
-  return "all";
-}
 </script>
 
 <template>

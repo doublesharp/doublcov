@@ -8,18 +8,21 @@
     "clean": "rm -rf dist dist-types *.tsbuildinfo",
     "dev": "vite --host 0.0.0.0",
     "test": "vitest run",
+    "test:fuzz": "vitest run test/fuzz.test.ts",
     "typecheck": "vue-tsc -b"
   },
   "dependencies": {
     "@0xdoublesharp/doublcov-core": "workspace:*",
     "@tailwindcss/vite": "4.2.4",
-    "tailwindcss": "4.2.4",
     "@vitejs/plugin-vue": "6.0.6",
     "shiki": "^4.0.2",
+    "tailwindcss": "4.2.4",
     "vite": "8.0.10",
     "vue": "3.5.33"
   },
   "devDependencies": {
+    "@vue/test-utils": "^2.4.8",
+    "happy-dom": "^20.9.0",
     "vue-tsc": "latest"
   }
 }
