@@ -2,12 +2,12 @@
 import path from "node:path";
 import { createRequire } from "node:module";
 import { readdir, rm, unlink } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cliRoot = path.join(root, "packages", "cli");
 const requireFromCli = createRequire(path.join(cliRoot, "package.json"));
-const { build } = await import(requireFromCli.resolve("esbuild"));
+const { build } = await import(pathToFileURL(requireFromCli.resolve("esbuild")).href);
 const dist = path.join(cliRoot, "dist");
 
 await rm(path.join(dist, "web"), { recursive: true, force: true });

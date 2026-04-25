@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cliRoot = path.join(root, "packages", "cli");
 const requireFromCli = createRequire(path.join(cliRoot, "package.json"));
-const { build } = await import(requireFromCli.resolve("esbuild"));
+const { build } = await import(pathToFileURL(requireFromCli.resolve("esbuild")).href);
 const dist = path.join(cliRoot, "dist");
 const seaDir = path.join(dist, "sea");
 const binDir = path.join(dist, "bin");

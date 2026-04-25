@@ -143,8 +143,24 @@ jobs:
       - name: Build package
         run: pnpm run build
 
+      - name: Check npm package version
+        id: npm-version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./packages/cli/package.json').version")
+          if npm view "@0xdoublesharp/doublcov@$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish package
+        if: steps.npm-version.outputs.exists != 'true'
         run: npm publish ./packages/cli --access public --provenance --ignore-scripts
+
+      - name: Skip existing package version
+        if: steps.npm-version.outputs.exists == 'true'
+        run: echo "Package version already exists on npm; skipping publish."
 
   container:
     name: Container Image
