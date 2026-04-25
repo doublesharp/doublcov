@@ -47,6 +47,34 @@ describe("parseReportPayload", () => {
     );
   });
 
+  it("lowercases the per-file searchText so case-folded UI search stays consistent", () => {
+    const report = parseReportPayload({
+      ...baseReport(),
+      files: [
+        {
+          ...baseFile(),
+          path: "Src/Foo.ts",
+          searchText: "Src/Foo.ts\nSomeFunction",
+        },
+      ],
+    });
+    expect(report.files[0]?.searchText).toBe("src/foo.ts\nsomefunction");
+  });
+
+  it("falls back to a lowercased path when searchText is missing or wrong-typed", () => {
+    const report = parseReportPayload({
+      ...baseReport(),
+      files: [
+        {
+          ...baseFile(),
+          path: "Src/Foo.ts",
+          searchText: 42,
+        },
+      ],
+    });
+    expect(report.files[0]?.searchText).toBe("src/foo.ts");
+  });
+
   it("keeps source payload fetches inside the generated data/files directory", () => {
     const report = parseReportPayload({
       ...baseReport(),

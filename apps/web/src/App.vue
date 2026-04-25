@@ -29,6 +29,7 @@ import {
 } from "./syntax";
 import { builtInThemes, themeMode, themeTokens } from "./themes";
 import { parseReportPayload, parseSourcePayload } from "./reportPayload";
+import { readSetting, writeSetting } from "./storage";
 
 const report = ref<CoverageReport | null>(null);
 const selectedFileId = ref("");
@@ -59,8 +60,9 @@ const sidePanelResizeStart = ref<{
   x: number;
   width: number;
 } | null>(null);
-const theme = ref(localStorage.getItem("doublcov-theme") ?? "dark");
+const theme = ref(readSetting("doublcov-theme") ?? "dark");
 const error = ref<string | null>(null);
+const sourceError = ref<string | null>(null);
 const helpOpen = ref(false);
 const highlightedSourceTokens = ref<Record<number, SyntaxToken[]>>({});
 const highlightRequestId = ref(0);
@@ -295,7 +297,7 @@ onBeforeUnmount(() => {
 });
 
 watch(theme, () => {
-  localStorage.setItem("doublcov-theme", theme.value);
+  writeSetting("doublcov-theme", theme.value);
   applyTheme();
 });
 
@@ -308,24 +310,15 @@ watch(visibleSourceHighlightKey, () => {
 });
 
 watch(navigatorHeight, () => {
-  localStorage.setItem(
-    "doublcov-navigator-height",
-    String(navigatorHeight.value),
-  );
+  writeSetting("doublcov-navigator-height", String(navigatorHeight.value));
 });
 
 watch(leftPanelWidth, () => {
-  localStorage.setItem(
-    "doublcov-left-panel-width",
-    String(leftPanelWidth.value),
-  );
+  writeSetting("doublcov-left-panel-width", String(leftPanelWidth.value));
 });
 
 watch(rightPanelWidth, () => {
-  localStorage.setItem(
-    "doublcov-right-panel-width",
-    String(rightPanelWidth.value),
-  );
+  writeSetting("doublcov-right-panel-width", String(rightPanelWidth.value));
 });
 
 watch(
@@ -357,7 +350,14 @@ watch(selectedFileId, () => {
 
 watch(selectedFileId, async () => {
   sourceWindowStart.value = Math.max(1, (selectedLine.value ?? 1) - 120);
-  await loadSelectedSource();
+  sourceError.value = null;
+  try {
+    await loadSelectedSource();
+  } catch (caught) {
+    sourceError.value =
+      caught instanceof Error ? caught.message : String(caught);
+    return;
+  }
   await scrollToSelectedLine();
 });
 
@@ -388,7 +388,7 @@ function applyTheme(): void {
 }
 
 function applyDefaultReportTheme(): void {
-  const savedTheme = localStorage.getItem("doublcov-theme");
+  const savedTheme = readSetting("doublcov-theme");
   const defaultTheme = report.value?.customization?.defaultTheme;
   const nextTheme = savedTheme ?? defaultTheme ?? theme.value;
   theme.value = availableThemes.value.some(
@@ -510,7 +510,14 @@ async function selectFile(
   selectedFileId.value = fileId;
   selectedLine.value = line;
   if (line) sourceWindowStart.value = Math.max(1, line - 120);
-  await loadSelectedSource();
+  sourceError.value = null;
+  try {
+    await loadSelectedSource();
+  } catch (caught) {
+    sourceError.value =
+      caught instanceof Error ? caught.message : String(caught);
+    return;
+  }
   await scrollToSelectedLine(line);
 }
 
@@ -902,7 +909,7 @@ function writeHashState(): void {
 
 function readStoredNavigatorHeight(): number {
   return parseBoundedInteger(
-    localStorage.getItem("doublcov-navigator-height"),
+    readSetting("doublcov-navigator-height"),
     navigatorMinHeight,
     navigatorMaxHeight,
     navigatorDefaultHeight,
@@ -911,7 +918,7 @@ function readStoredNavigatorHeight(): number {
 
 function readStoredSidePanelWidth(panel: "left" | "right"): number {
   return parseBoundedInteger(
-    localStorage.getItem(`doublcov-${panel}-panel-width`),
+    readSetting(`doublcov-${panel}-panel-width`),
     sidePanelMinWidth,
     sidePanelMaxWidth,
     sidePanelDefaultWidth,
@@ -1231,6 +1238,13 @@ function parseUncoveredKind(value: string | null): UncoveredKind | "all" {
                   >ignored</span
                 >
               </div>
+            </div>
+            <div
+              v-if="sourceError"
+              class="border-b border-red-400 bg-[var(--panel-soft)] px-3 py-2 text-sm text-red-700 dark:text-red-200"
+              role="alert"
+            >
+              Could not load source: {{ sourceError }}
             </div>
             <div
               v-if="sourcePayload && sourcePayload.lines.length > 800"

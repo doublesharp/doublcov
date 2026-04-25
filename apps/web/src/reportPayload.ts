@@ -123,7 +123,7 @@ function sanitizeSourceFileCoverage(input: unknown): SourceFileCoverage | null {
     ignored: sanitizeFileIgnored(input.ignored),
     searchText:
       typeof input.searchText === "string"
-        ? input.searchText
+        ? input.searchText.toLowerCase()
         : input.path.toLowerCase(),
     sourceDataPath: sanitizeSourceDataPath(input.sourceDataPath, input.id),
   };
