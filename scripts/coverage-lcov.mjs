@@ -44,6 +44,10 @@ const packages = [
 await rm(coverageRoot, { force: true, recursive: true });
 await mkdir(coverageRoot, { recursive: true });
 
+// Dependent packages import the core package through its package exports, which
+// point at dist/. Build it first so coverage also works from fresh CI checkouts.
+await run("pnpm", ["--filter", "@0xdoublesharp/doublcov-core", "run", "build"]);
+
 for (const packageConfig of packages) {
   await run("pnpm", [
     "--filter",
