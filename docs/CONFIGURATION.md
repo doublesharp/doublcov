@@ -1,6 +1,6 @@
 # Configuration
 
-Doublcov works without a config file. Use configuration only when a report needs custom theme metadata or declarative UI hooks.
+Doublcov works without a config file. Use configuration when a report needs local workflow defaults, custom theme metadata, or declarative UI hooks.
 
 ## CLI Options
 
@@ -16,12 +16,15 @@ doublcov build \
 
 `--theme <id>` sets the default theme.
 
-Doublcov automatically attempts to load `doublcov.config.json` from the current working directory. If the default file is absent, the build continues without customization. If the default file is present, it is embedded into the generated report.
+`--open` opens the generated report after a build. `--no-open` disables config-driven auto-open for that run.
+
+Doublcov automatically attempts to load `doublcov.config.json` from the current working directory. If the default file is absent, the build continues without customization. If the default file is present, report customization is embedded into the generated report.
 
 ## Customization Shape
 
 ```json
 {
+  "open": true,
   "defaultTheme": "ci-dark",
   "themes": [
     {
@@ -75,6 +78,8 @@ Doublcov automatically attempts to load `doublcov.config.json` from the current 
   ]
 }
 ```
+
+`open` is a CLI workflow setting only. It is not embedded into the report JSON.
 
 ## Theme Tokens
 

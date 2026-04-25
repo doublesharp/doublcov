@@ -3,8 +3,10 @@ import {
   parseLcov,
   sanitizeCoverageReportCustomization,
   type CoverageHistory,
+  type CoverageReport,
   type CoverageReportCustomization,
-  type CoverageRun
+  type CoverageRun,
+  type SourceFilePayload
 } from "@0xdoublesharp/doublcov-core";
 import { promises as fs } from "node:fs";
 import { createRequire } from "node:module";
@@ -24,16 +26,27 @@ interface SeaApi {
   getAsset?: (key: string, encoding?: string) => ArrayBuffer | string;
 }
 
-export async function buildReport(options: BuildOptions): Promise<void> {
+export interface BuildReportResult {
+  outDir: string;
+  open: boolean;
+}
+
+export interface ReportConfig {
+  customization?: CoverageReportCustomization;
+  open?: boolean;
+}
+
+export async function buildReport(options: BuildOptions): Promise<BuildReportResult> {
   const outDir = path.resolve(options.out);
   const webAssets = await resolveWebAssets();
-  const [lcov, diagnosticInputs, customization, historyRaw] = await Promise.all([
+  const [lcov, diagnosticInputs, config, historyRaw] = await Promise.all([
     readTextIfPresent(options.lcov),
     readDiagnosticInputs(options.diagnostics),
-    readCustomization(options.customization),
+    readReportConfig(options.customization),
     readJsonIfPresent<unknown>(options.history)
   ]);
   const history = sanitizeHistory(historyRaw);
+  const open = resolveAutoOpen(options.open, config);
 
   if (!lcov) throw new Error(`Could not read LCOV file at ${options.lcov}.`);
   const lcovSourcePaths = parseLcov(lcov).map((record) => record.sourceFile);
@@ -48,7 +61,7 @@ export async function buildReport(options: BuildOptions): Promise<void> {
     lcov,
     sourceFiles,
     diagnostics: diagnosticInputs,
-    ...(customization ? { customization } : {}),
+    ...(config.customization ? { customization: config.customization } : {}),
     projectName,
     projectRoot: process.cwd(),
     ...(history ? { history } : {}),
@@ -62,17 +75,19 @@ export async function buildReport(options: BuildOptions): Promise<void> {
   await Promise.all(
     bundle.sourcePayloads.map((payload) => writeJson(path.join(outDir, "data", "files", `${payload.id}.json`), payload))
   );
+  await makeIndexHtmlStandalone(outDir, bundle.report, bundle.sourcePayloads);
   if (options.history) await writeJsonAtomic(path.resolve(options.history), bundle.report.history);
 
   process.stdout.write(
     `Generated ${bundle.report.files.length} file report with ${bundle.report.uncoveredItems.length} uncovered items at ${outDir}\n`
   );
+  return { outDir, open };
 }
 
-async function readCustomization(
+export async function readReportConfig(
   customization: BuildOptions["customization"]
-): Promise<CoverageReportCustomization | undefined> {
-  if (!customization) return undefined;
+): Promise<ReportConfig> {
+  if (!customization) return {};
   const parsed = await readJsonIfPresent<unknown>(customization.path);
   if (parsed === undefined && customization.required) {
     throw new Error(`Could not read customization file at ${customization.path}.`);
@@ -81,7 +96,15 @@ async function readCustomization(
   const withTheme = customization.defaultTheme
     ? { ...base, defaultTheme: customization.defaultTheme }
     : base;
-  return Object.keys(withTheme).length > 0 ? sanitizeCustomization(withTheme) : undefined;
+  const sanitizedCustomization = Object.keys(withTheme).length > 0 ? sanitizeCustomization(withTheme) : undefined;
+  return {
+    ...(sanitizedCustomization ? { customization: sanitizedCustomization } : {}),
+    ...(typeof base.open === "boolean" ? { open: base.open } : {})
+  };
+}
+
+export function resolveAutoOpen(optionOpen: boolean | undefined, config: ReportConfig): boolean {
+  return optionOpen ?? config.open ?? false;
 }
 
 export function sanitizeCustomization(input: unknown): CoverageReportCustomization | undefined {
@@ -227,6 +250,90 @@ async function copyWebAssets(webAssets: string, outDir: string): Promise<void> {
       await fs.writeFile(path.join(outDir, relativePath), typeof asset === "string" ? asset : Buffer.from(asset));
     })
   );
+}
+
+async function makeIndexHtmlStandalone(
+  outDir: string,
+  report: CoverageReport,
+  sourcePayloads: SourceFilePayload[]
+): Promise<void> {
+  const indexPath = path.join(outDir, "index.html");
+  let html = await fs.readFile(indexPath, "utf8");
+  html = await inlineStylesheets(html, outDir);
+  html = await inlineModuleScript(html, outDir, report, sourcePayloads);
+  await fs.writeFile(indexPath, html, "utf8");
+}
+
+async function inlineStylesheets(html: string, outDir: string): Promise<string> {
+  let nextHtml = html;
+  const stylesheetTags = [...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)];
+  for (const match of stylesheetTags) {
+    const tag = match[0];
+    const href = tag.match(/\bhref="([^"]+)"/)?.[1];
+    if (!href) continue;
+    const css = await fs.readFile(resolveOutputAssetPath(outDir, href), "utf8");
+    nextHtml = replaceLiteralOnce(nextHtml, tag, `<style>\n${escapeHtmlRawText(css, "style")}\n</style>`);
+  }
+  return nextHtml;
+}
+
+async function inlineModuleScript(
+  html: string,
+  outDir: string,
+  report: CoverageReport,
+  sourcePayloads: SourceFilePayload[]
+): Promise<string> {
+  const match = html.match(/<script\b[^>]*type="module"[^>]*src="([^"]+)"[^>]*><\/script>/);
+  if (!match?.[0] || !match[1]) return html;
+
+  const js = stripSourceMapComment(await fs.readFile(resolveOutputAssetPath(outDir, match[1]), "utf8"));
+  const embeddedData = [
+    `<script type="application/json" id="doublcov-report-data">${escapeJsonForHtml(JSON.stringify(report))}</script>`,
+    `<script type="application/json" id="doublcov-source-data">${escapeJsonForHtml(JSON.stringify(sourcePayloadsByPath(report, sourcePayloads)))}</script>`
+  ].join("\n");
+  return replaceLiteralOnce(
+    html,
+    match[0],
+    `${embeddedData}\n<script type="module">\n${escapeHtmlRawText(js, "script")}\n</script>`
+  );
+}
+
+function sourcePayloadsByPath(
+  report: CoverageReport,
+  sourcePayloads: SourceFilePayload[]
+): Record<string, SourceFilePayload> {
+  const byId = new Map(sourcePayloads.map((payload) => [payload.id, payload]));
+  const byPath: Record<string, SourceFilePayload> = {};
+  for (const file of report.files) {
+    const payload = byId.get(file.id);
+    if (payload) byPath[file.sourceDataPath] = payload;
+  }
+  return byPath;
+}
+
+function resolveOutputAssetPath(outDir: string, assetPath: string): string {
+  return path.join(outDir, assetPath.replace(/^\.\//, "").replace(/^\//, ""));
+}
+
+function stripSourceMapComment(js: string): string {
+  return js.replace(/\n\/\/# sourceMappingURL=.*\s*$/, "");
+}
+
+export function escapeJsonForHtml(json: string): string {
+  return json
+    .replace(/&/g, "\\u0026")
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+export function replaceLiteralOnce(input: string, search: string, replacement: string): string {
+  return input.replace(search, () => replacement);
+}
+
+function escapeHtmlRawText(text: string, elementName: "script" | "style"): string {
+  return text.replace(new RegExp(`</${elementName}`, "gi"), `<\\/${elementName}`);
 }
 
 function getSeaWebAssetKeys(): string[] {

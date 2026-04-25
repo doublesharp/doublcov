@@ -21,7 +21,7 @@ npx @0xdoublesharp/doublcov build --lcov lcov.info --sources src --out coverage/
 
 ## What You Get
 
-- A portable static report directory you can upload to CI artifacts or any static host.
+- A portable static report directory with a self-contained `index.html` you can open from disk or upload to any static host.
 - Built-in builders for Foundry, Hardhat, Vitest, Jest, Node/V8, pytest, Rust coverage tools, and gcov/lcov.
 - Source-level navigation for uncovered lines, branch/function totals, parser diagnostics, and historical coverage.
 - A GitHub Action, npm package, standalone binaries, and Docker image for different project shapes.
@@ -135,9 +135,12 @@ Doublcov automatically reads `doublcov.config.json` from the current working dir
 
 Configuration supports:
 
+- `open` to auto-open the generated `index.html` after `build` or builder commands
 - `defaultTheme`
 - custom `themes`
 - declarative hooks for `report:header`, `report:summary`, `file:toolbar`, and `sidebar:panel`
+
+`--open` and `--no-open` override the config for a single run.
 
 See [Configuration](docs/CONFIGURATION.md).
 
@@ -160,7 +163,7 @@ doublcov forge --debug coverage.debug --bytecode coverage.bytecode
 
 ## CI And Hosting
 
-Reports are static directories. Upload `coverage/report` to CI artifacts, GitHub Pages, GitLab Pages, Cloudflare Pages, Netlify, Vercel, object storage, or any static file server.
+Reports are static directories with a self-contained `index.html`. Open `coverage/report/index.html` directly from disk, or upload `coverage/report` to CI artifacts, GitHub Pages, GitLab Pages, Cloudflare Pages, Netlify, Vercel, object storage, or any static file server.
 
 GitHub Actions example:
 

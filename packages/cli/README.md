@@ -93,7 +93,6 @@ Defaults:
 - source path: `src`
 - output directory: `coverage/report`
 - history file: `.doublcov/history.json`
-- preview port: `60732`
 
 ## Supported Builders
 
@@ -208,13 +207,15 @@ doublcov build \
   --theme ci-dark
 ```
 
-Customization JSON can define themes and declarative UI hook metadata for `report:header`, `report:summary`, `file:toolbar`, and `sidebar:panel`.
+Customization JSON can set `"open": true` to auto-open the generated `index.html` after `build` or builder commands. It can also define themes and declarative UI hook metadata for `report:header`, `report:summary`, `file:toolbar`, and `sidebar:panel`.
 
 The CLI automatically loads `doublcov.config.json` from the current working directory when it exists. Use `--customization <path>` to override the path. An explicitly supplied customization path must exist.
 
+Use `--open` or `--no-open` to override the config for one run.
+
 ## Output Hosting
 
-The generated report directory is static. Upload `coverage/report` to GitHub Pages, GitLab Pages, Netlify, Vercel, Cloudflare Pages, object storage, or CI artifacts.
+The generated report directory is static. Open `coverage/report/index.html` directly from disk, or upload `coverage/report` to GitHub Pages, GitLab Pages, Netlify, Vercel, Cloudflare Pages, object storage, or CI artifacts.
 
 ## GitHub Action
 

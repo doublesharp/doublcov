@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeCustomization, sanitizeHistory } from "../src/build.js";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import {
+  escapeJsonForHtml,
+  readReportConfig,
+  replaceLiteralOnce,
+  resolveAutoOpen,
+  sanitizeCustomization,
+  sanitizeHistory
+} from "../src/build.js";
 
 describe("sanitizeCustomization", () => {
   it("keeps valid declarative customization and strips unsafe hrefs or malformed entries", () => {
@@ -140,5 +150,40 @@ describe("sanitizeHistory", () => {
     });
     expect(result?.runs).toHaveLength(1);
     expect(result?.runs[0]?.id).toBe("abc");
+  });
+});
+
+describe("escapeJsonForHtml", () => {
+  it("keeps embedded JSON from closing its script tag", () => {
+    const escaped = escapeJsonForHtml(JSON.stringify({ source: "</script><script>alert(1)</script>" }));
+    expect(escaped).not.toContain("</script>");
+    expect(JSON.parse(escaped)).toEqual({ source: "</script><script>alert(1)</script>" });
+  });
+});
+
+describe("replaceLiteralOnce", () => {
+  it("does not expand dollar tokens from inlined assets", () => {
+    expect(replaceLiteralOnce("<script src=\"app.js\"></script>", "<script src=\"app.js\"></script>", "x$&y$1")).toBe(
+      "x$&y$1"
+    );
+  });
+});
+
+describe("report config", () => {
+  it("reads auto-open without embedding it into report customization", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "doublcov-config-"));
+    const configPath = path.join(root, "doublcov.config.json");
+    await writeFile(configPath, JSON.stringify({ open: true, defaultTheme: "dark" }), "utf8");
+
+    const config = await readReportConfig({ path: configPath, required: true });
+    expect(config.open).toBe(true);
+    expect(config.customization).toEqual({ defaultTheme: "dark" });
+  });
+
+  it("lets explicit CLI open settings override config", () => {
+    expect(resolveAutoOpen(undefined, { open: true })).toBe(true);
+    expect(resolveAutoOpen(false, { open: true })).toBe(false);
+    expect(resolveAutoOpen(true, { open: false })).toBe(true);
+    expect(resolveAutoOpen(undefined, {})).toBe(false);
   });
 });

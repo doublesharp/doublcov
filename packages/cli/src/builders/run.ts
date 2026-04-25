@@ -20,15 +20,15 @@ export async function runCoverageBuilder(builderName: string, options: BuilderOp
       out: options.out,
       history: options.history,
       diagnostics: [...options.diagnostics, ...(prepared.diagnostics ?? [])],
+      ...(options.open !== undefined ? { open: options.open } : {}),
       ...(options.customization ? { customization: options.customization } : {}),
       ...(options.name ? { name: options.name } : {})
     };
-    await buildReport(buildOptions);
+    const result = await buildReport(buildOptions);
+    if (result.open) await openReport(result.outDir, options.port);
   } finally {
     await prepared.cleanup?.();
   }
-
-  if (options.open) await openReport(options.out, options.port);
 }
 
 function runCommand(command: string, args: string[]): Promise<void> {

@@ -7,6 +7,7 @@ export interface BuildOptions {
   sourceExtensions: string[];
   out: string;
   history: string;
+  open?: boolean;
   name?: string;
   customization?: CustomizationFileOption;
   diagnostics: DiagnosticFileOption[];
@@ -25,7 +26,6 @@ export interface DiagnosticFileOption {
 
 export interface BuilderOptions extends Omit<BuildOptions, "lcov"> {
   lcov?: string;
-  open: boolean;
   port: number;
   builderArgs: string[];
 }
@@ -55,18 +55,20 @@ export function parseCommand(argv: string[]): CliCommand {
 }
 
 function parseBuild(argv: string[]): BuildOptions {
-  const values = parseFlags(argv);
+  const values = parseFlags(argv, new Set(["open", "no-open"]));
   const lcov = values.lcov ?? DEFAULT_LCOV;
   const out = values.out ?? DEFAULT_OUT;
   const sources = values.sources ? parseList(values.sources) : DEFAULT_SOURCES;
   const sourceExtensions = values.extensions ? parseList(values.extensions) : [...DEFAULT_SOURCE_EXTENSIONS];
   const customization = parseCustomizationFileOption(values);
+  const open = parseOpenFlag(values);
   return {
     lcov,
     sources,
     sourceExtensions,
     out,
     history: values.history ?? DEFAULT_HISTORY,
+    ...(open !== undefined ? { open } : {}),
     ...(customization ? { customization } : {}),
     diagnostics: parseDiagnosticFileOptions(argv, values),
     ...(values.name ? { name: values.name } : {})
@@ -76,19 +78,20 @@ function parseBuild(argv: string[]): BuildOptions {
 function parseBuilder(command: string, argv: string[]): BuilderOptions {
   const builder = resolveBuilder(command);
   const { cliArgs, passthroughArgs } = splitPassthrough(argv);
-  const values = parseFlags(cliArgs, new Set(["open"]));
+  const values = parseFlags(cliArgs, new Set(["open", "no-open"]));
   const out = values.out ?? DEFAULT_OUT;
   const sources = values.sources ? parseList(values.sources) : builder?.defaultSources ?? DEFAULT_SOURCES;
   const sourceExtensions = values.extensions
     ? parseList(values.extensions)
     : builder?.defaultExtensions ?? [...DEFAULT_SOURCE_EXTENSIONS];
   const customization = parseCustomizationFileOption(values);
+  const open = parseOpenFlag(values);
   return {
     ...(values.lcov ? { lcov: values.lcov } : {}),
     sources,
     sourceExtensions,
     out,
-    open: values.open === "true",
+    ...(open !== undefined ? { open } : {}),
     port: parsePort(values.port),
     history: values.history ?? DEFAULT_HISTORY,
     builderArgs: passthroughArgs,
@@ -96,6 +99,14 @@ function parseBuilder(command: string, argv: string[]): BuilderOptions {
     diagnostics: parseDiagnosticFileOptions(cliArgs, values),
     ...(values.name ? { name: values.name } : {})
   };
+}
+
+function parseOpenFlag(values: Record<string, string | undefined>): boolean | undefined {
+  if (values["no-open"] !== undefined) return false;
+  if (values.open === undefined) return undefined;
+  if (values.open === "true") return true;
+  if (values.open === "false") return false;
+  throw new Error(`Invalid --open "${values.open}". Expected true or false.`);
 }
 
 function parseList(value: string): string[] {
@@ -241,6 +252,7 @@ Usage:
   doublcov cargo-llvm-cov
   doublcov lcov-capture
   doublcov forge --open -- --exclude-tests --ir-minimum
+  doublcov build --open
   doublcov build
   doublcov open
 
@@ -256,8 +268,9 @@ Builder options:
   --diagnostic <in>   Optional parser-tagged diagnostics as <parser>:<path>
   --debug <path>      Alias for --diagnostic foundry-debug:<path>
   --bytecode <path>   Alias for --diagnostic foundry-bytecode:<path>
-  --open              Start a local static preview after generating the report
-  --port <number>     Preview port when used with --open. Default: 60732
+  --open              Open the generated report index.html in the default browser
+  --no-open           Disable config-driven auto-open for this run
+  --port <number>     Deprecated and ignored
   --                  Pass all remaining arguments to the underlying builder
 
 Build options:
@@ -272,5 +285,7 @@ Build options:
   --diagnostic <in>   Optional parser-tagged diagnostics as <parser>:<path>
   --debug <path>      Alias for --diagnostic foundry-debug:<path>
   --bytecode <path>   Alias for --diagnostic foundry-bytecode:<path>
+  --open              Open the generated report index.html in the default browser
+  --no-open           Disable config-driven auto-open for this run
 `;
 }

@@ -91,12 +91,35 @@ describe("parseCommand", () => {
     });
   });
 
+  it("parses auto-open overrides for build and builder commands", () => {
+    expect(parseCommand(["build", "--open"])).toMatchObject({
+      name: "build",
+      options: {
+        open: true
+      }
+    });
+
+    expect(parseCommand(["build", "--no-open"])).toMatchObject({
+      name: "build",
+      options: {
+        open: false
+      }
+    });
+
+    expect(parseCommand(["forge", "--open=false", "--", "--exclude-tests"])).toMatchObject({
+      name: "builder",
+      options: {
+        open: false,
+        builderArgs: ["--exclude-tests"]
+      }
+    });
+  });
+
   it("uses defaults for common forge paths", () => {
     expect(parseCommand(["forge", "--", "--exclude-tests"])).toMatchObject({
       name: "builder",
       builder: "forge",
       options: {
-        open: false,
         sources: ["src"],
         sourceExtensions: [".sol"],
         out: "coverage/report",

@@ -5,7 +5,7 @@ Doublcov is structured around a generic LCOV core, a CLI package, and a static w
 ## Package Boundaries
 
 - `@0xdoublesharp/doublcov-core`: LCOV parsing, report building, language registry, diagnostic parser registry, history. This package is private in this workspace.
-- `@0xdoublesharp/doublcov`: CLI, builder integrations, filesystem collection, static report generation, preview server.
+- `@0xdoublesharp/doublcov`: CLI, builder integrations, filesystem collection, static report generation, and browser-opening helpers.
 - `@0xdoublesharp/doublcov-web`: static Vue report explorer bundled into the CLI package.
 
 ## Workspace Extension Points

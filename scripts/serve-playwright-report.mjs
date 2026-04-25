@@ -1,4 +1,6 @@
 // @ts-check
+import { createReadStream } from "node:fs";
+import { createServer } from "node:http";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -8,6 +10,15 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const reportDir = path.join(repoRoot, ".tmp", "playwright-report");
 const cliPath = path.join(repoRoot, "packages/cli/dist/index.js");
 const port = Number(process.env.PORT ?? 60733);
+/** @type {Record<string, string>} */
+const contentTypes = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".map": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml"
+};
 
 await rm(reportDir, { recursive: true, force: true });
 await mkdir(reportDir, { recursive: true });
@@ -30,7 +41,7 @@ await run(process.execPath, [
 ]);
 
 await injectUnsafeCustomization(path.join(reportDir, "data/report.json"));
-await run(process.execPath, [cliPath, "open", reportDir, "--port", String(port)]);
+await serveReport(reportDir, port);
 
 /**
  * @param {string} reportPath
@@ -83,6 +94,61 @@ async function injectUnsafeCustomization(reportPath) {
     report.files[0].sourceDataPath = "https://example.test/should-not-load.json";
   }
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await replaceEmbeddedJson(path.join(path.dirname(path.dirname(reportPath)), "index.html"), "doublcov-report-data", report);
+}
+
+/**
+ * @param {string} indexPath
+ * @param {string} elementId
+ * @param {unknown} payload
+ * @returns {Promise<void>}
+ */
+async function replaceEmbeddedJson(indexPath, elementId, payload) {
+  const html = await readFile(indexPath, "utf8");
+  const escaped = JSON.stringify(payload)
+    .replace(/&/g, "\\u0026")
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+  const pattern = new RegExp(`(<script type="application/json" id="${elementId}">)([\\s\\S]*?)(</script>)`);
+  await writeFile(
+    indexPath,
+    html.replace(pattern, (_match, openTag, _existing, closeTag) => `${openTag}${escaped}${closeTag}`),
+    "utf8"
+  );
+}
+
+/**
+ * @param {string} root
+ * @param {number} serverPort
+ * @returns {Promise<void>}
+ */
+function serveReport(root, serverPort) {
+  return new Promise((resolve, reject) => {
+    const server = createServer((request, response) => {
+      const requestPath = decodeURIComponent(request.url?.split("?")[0] ?? "/");
+      const absolutePath = path.resolve(root, `.${requestPath === "/" ? "/index.html" : requestPath}`);
+      const relativePath = path.relative(root, absolutePath);
+      if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+        response.writeHead(403);
+        response.end("Forbidden");
+        return;
+      }
+      response.setHeader("content-type", contentTypes[path.extname(absolutePath)] ?? "application/octet-stream");
+      createReadStream(absolutePath)
+        .on("error", () => {
+          response.writeHead(404);
+          response.end("Not found");
+        })
+        .pipe(response);
+    });
+    server.on("error", reject);
+    server.listen(serverPort, "127.0.0.1", () => {
+      process.stdout.write(`Serving Playwright report fixture at http://127.0.0.1:${serverPort}\n`);
+      resolve();
+    });
+  });
 }
 
 /**

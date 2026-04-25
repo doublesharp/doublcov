@@ -11,7 +11,8 @@ async function main(): Promise<void> {
     return;
   }
   if (command.name === "build") {
-    await buildReport(command.options);
+    const result = await buildReport(command.options);
+    if (result.open) await openReport(result.outDir);
     return;
   }
   if (command.name === "builder") {
