@@ -2,6 +2,7 @@ node_modules
 dist
 dist-types
 coverage
+.doublcov
 .tmp
 playwright-report
 test-results

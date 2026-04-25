@@ -1373,8 +1373,7 @@ function parseUncoveredKind(value: string | null): UncoveredKind | "all" {
                 />
               </div>
               <p class="muted mt-2 text-xs">
-                {{ report.history.runs.length }} stored runs. History is written
-                by the CLI at build time.
+                {{ report.history.runs.length }} stored runs.
               </p>
             </section>
 

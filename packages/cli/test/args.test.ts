@@ -45,6 +45,36 @@ describe("parseCommand", () => {
     });
   });
 
+  it("parses report mode and static server options", () => {
+    expect(parseCommand(["build", "--mode", "static"])).toMatchObject({
+      name: "build",
+      options: {
+        mode: "static",
+      },
+    });
+    expect(
+      parseCommand([
+        "serve",
+        "coverage/report",
+        "--port",
+        "0",
+        "--timeout",
+        "45m",
+      ]),
+    ).toMatchObject({
+      name: "serve",
+      reportDir: "coverage/report",
+      port: 0,
+      timeoutMs: 45 * 60 * 1000,
+    });
+    expect(() => parseCommand(["build", "--mode", "large"])).toThrow(
+      /Invalid --mode/,
+    );
+    expect(() => parseCommand(["serve", "--timeout", "soon"])).toThrow(
+      /Invalid --timeout/,
+    );
+  });
+
   it("parses generic and Foundry diagnostic inputs", () => {
     expect(
       parseCommand([
@@ -134,7 +164,8 @@ describe("parseCommand", () => {
         sourceExtensions: [".sol"],
         out: "coverage/report",
         history: ".doublcov/history.json",
-        port: 60732,
+        port: 0,
+        timeoutMs: 30 * 60 * 1000,
         builderArgs: ["--exclude-tests"],
       },
     });
@@ -282,9 +313,6 @@ describe("parseCommand", () => {
   });
 
   it("rejects out-of-range, fractional, or non-numeric --port values", () => {
-    expect(() => parseCommand(["forge", "--port", "0"])).toThrow(
-      /Invalid --port/,
-    );
     expect(() => parseCommand(["forge", "--port", "65536"])).toThrow(
       /Invalid --port/,
     );
@@ -303,6 +331,9 @@ describe("parseCommand", () => {
   });
 
   it("accepts valid --port values at both ends of the range", () => {
+    expect(parseCommand(["forge", "--port", "0"])).toMatchObject({
+      options: { port: 0 },
+    });
     expect(parseCommand(["forge", "--port", "1"])).toMatchObject({
       options: { port: 1 },
     });

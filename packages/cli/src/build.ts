@@ -12,7 +12,7 @@ import { promises as fs } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { BuildOptions, DiagnosticFileOption } from "./args.js";
+import type { BuildOptions, DiagnosticFileOption, ReportMode } from "./args.js";
 import {
   copyDirectory,
   readJsonIfPresent,
@@ -36,6 +36,7 @@ interface SeaApi {
 export interface BuildReportResult {
   outDir: string;
   open: boolean;
+  mode: ReportMode;
 }
 
 export interface ReportConfig {
@@ -45,6 +46,7 @@ export interface ReportConfig {
   sourceExtensions?: string[];
   out?: string;
   history?: string;
+  mode?: ReportMode;
   open?: boolean;
   name?: string;
 }
@@ -65,6 +67,7 @@ export async function buildReport(
   ]);
   const history = sanitizeHistory(historyRaw);
   const open = resolveAutoOpen(options.open, config);
+  const mode = resolveReportMode(resolvedOptions.mode, config);
 
   if (!lcov)
     throw new Error(`Could not read LCOV file at ${resolvedOptions.lcov}.`);
@@ -103,15 +106,19 @@ export async function buildReport(
       ),
     ),
   );
-  await makeIndexHtmlStandalone(outDir, bundle.report, bundle.sourcePayloads);
+  if (mode === "standalone") {
+    await makeIndexHtmlStandalone(outDir, bundle.report, bundle.sourcePayloads);
+  }
   if (resolvedOptions.history)
     await writeJsonAtomic(
       path.resolve(resolvedOptions.history),
       bundle.report.history,
     );
 
-  process.stdout.write(formatGeneratedReportMessage(bundle.report, outDir));
-  return { outDir, open };
+  process.stdout.write(
+    formatGeneratedReportMessage(bundle.report, outDir, mode),
+  );
+  return { outDir, open, mode };
 }
 
 export function resolveBuildOptions(
@@ -134,6 +141,15 @@ export function resolveBuildOptions(
     history: options.explicit?.history
       ? options.history
       : (config.history ?? options.history),
+    ...(options.explicit?.mode
+      ? options.mode
+        ? { mode: options.mode }
+        : {}
+      : config.mode
+        ? { mode: config.mode }
+        : options.mode
+          ? { mode: options.mode }
+          : {}),
     ...(name ? { name } : {}),
   };
 }
@@ -172,6 +188,8 @@ export function sanitizeReportConfigFields(
   if (typeof input.out === "string") config.out = input.out;
   if (typeof input.history === "string") config.history = input.history;
   if (typeof input.name === "string") config.name = input.name;
+  if (input.mode === "standalone" || input.mode === "static")
+    config.mode = input.mode;
   if (typeof input.open === "boolean") config.open = input.open;
   const sources = sanitizeStringList(input.sources);
   if (sources) config.sources = sources;
@@ -191,6 +209,16 @@ export function resolveAutoOpen(
   if (optionOpen !== undefined) return optionOpen;
   if (isCiEnvironment(env)) return false;
   return config.open ?? true;
+}
+
+export function resolveReportMode(
+  optionMode: ReportMode | undefined,
+  config: ReportConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): ReportMode {
+  if (optionMode) return optionMode;
+  if (config.mode) return config.mode;
+  return isCiEnvironment(env) ? "static" : "standalone";
 }
 
 export function isCiEnvironment(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -504,14 +532,19 @@ export function replaceLiteralOnce(
 export function formatGeneratedReportMessage(
   report: CoverageReport,
   outDir: string,
+  mode: ReportMode = "standalone",
 ): string {
   const indexPath = path.join(outDir, "index.html");
-  return (
-    [
-      `Generated ${report.files.length} file report with ${report.uncoveredItems.length} uncovered items at ${outDir}`,
-      `Open report: ${indexPath}`,
-    ].join("\n") + "\n"
-  );
+  const lines = [
+    `Generated ${report.files.length} file report with ${report.uncoveredItems.length} uncovered items at ${outDir}`,
+  ];
+  if (mode === "static") {
+    lines.push(`Open report: doublcov open ${outDir}`);
+    lines.push(`Static index: ${indexPath}`);
+  } else {
+    lines.push(`Open report: ${indexPath}`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 function escapeHtmlRawText(

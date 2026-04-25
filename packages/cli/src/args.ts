@@ -7,6 +7,9 @@ export interface BuildOptions {
   sourceExtensions: string[];
   out: string;
   history: string;
+  mode?: ReportMode;
+  port: number;
+  timeoutMs: number;
   open?: boolean;
   name?: string;
   customization?: CustomizationFileOption;
@@ -14,12 +17,15 @@ export interface BuildOptions {
   explicit?: ExplicitBuildOptions;
 }
 
+export type ReportMode = "standalone" | "static";
+
 export interface ExplicitBuildOptions {
   lcov?: boolean;
   sources?: boolean;
   sourceExtensions?: boolean;
   out?: boolean;
   history?: boolean;
+  mode?: boolean;
   open?: boolean;
   name?: boolean;
 }
@@ -38,6 +44,7 @@ export interface DiagnosticFileOption {
 export interface BuilderOptions extends Omit<BuildOptions, "lcov"> {
   lcov?: string;
   port: number;
+  timeoutMs: number;
   builderArgs: string[];
 }
 
@@ -48,13 +55,15 @@ const DEFAULT_SOURCE_EXTENSIONS_TEXT = DEFAULT_SOURCE_EXTENSIONS.map(
   (extension) => extension.replace(/^\./, ""),
 ).join(",");
 export const DEFAULT_HISTORY = ".doublcov/history.json";
-const DEFAULT_PORT = 60732;
+const DEFAULT_PORT = 0;
+export const DEFAULT_SERVE_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_CUSTOMIZATION = "doublcov.config.json";
 
 export type CliCommand =
   | { name: "build"; options: BuildOptions }
   | { name: "builder"; builder: string; options: BuilderOptions }
-  | { name: "open"; reportDir: string; port: number }
+  | { name: "open"; reportDir: string; port: number; timeoutMs: number }
+  | { name: "serve"; reportDir: string; port: number; timeoutMs: number }
   | { name: "help" };
 
 export function parseCommand(argv: string[]): CliCommand {
@@ -70,6 +79,7 @@ export function parseCommand(argv: string[]): CliCommand {
       options: parseBuilder(command, rest),
     };
   if (command === "open") return parseOpen(rest);
+  if (command === "serve") return parseServe(rest);
   throw new Error(`Unknown command "${command}".`);
 }
 
@@ -83,12 +93,16 @@ function parseBuild(argv: string[]): BuildOptions {
     : [...DEFAULT_SOURCE_EXTENSIONS];
   const customization = parseCustomizationFileOption(values);
   const open = parseOpenFlag(values);
+  const mode = parseReportMode(values.mode);
   return {
     lcov,
     sources,
     sourceExtensions,
     out,
     history: values.history ?? DEFAULT_HISTORY,
+    ...(mode ? { mode } : {}),
+    port: parsePort(values.port),
+    timeoutMs: parseTimeout(values.timeout),
     ...(open !== undefined ? { open } : {}),
     ...(customization ? { customization } : {}),
     diagnostics: parseDiagnosticFileOptions(argv, values),
@@ -99,6 +113,7 @@ function parseBuild(argv: string[]): BuildOptions {
       sourceExtensions: values.extensions !== undefined,
       out: values.out !== undefined,
       history: values.history !== undefined,
+      mode: values.mode !== undefined,
       open: open !== undefined,
       name: values.name !== undefined,
     },
@@ -118,13 +133,16 @@ function parseBuilder(command: string, argv: string[]): BuilderOptions {
     : (builder?.defaultExtensions ?? [...DEFAULT_SOURCE_EXTENSIONS]);
   const customization = parseCustomizationFileOption(values);
   const open = parseOpenFlag(values);
+  const mode = parseReportMode(values.mode);
   return {
     ...(values.lcov ? { lcov: values.lcov } : {}),
     sources,
     sourceExtensions,
     out,
+    ...(mode ? { mode } : {}),
     ...(open !== undefined ? { open } : {}),
     port: parsePort(values.port),
+    timeoutMs: parseTimeout(values.timeout),
     history: values.history ?? DEFAULT_HISTORY,
     builderArgs: passthroughArgs,
     ...(customization ? { customization } : {}),
@@ -136,10 +154,17 @@ function parseBuilder(command: string, argv: string[]): BuilderOptions {
       sourceExtensions: values.extensions !== undefined,
       out: values.out !== undefined,
       history: values.history !== undefined,
+      mode: values.mode !== undefined,
       open: open !== undefined,
       name: values.name !== undefined,
     },
   };
+}
+
+function parseReportMode(value: string | undefined): ReportMode | undefined {
+  if (value === undefined) return undefined;
+  if (value === "standalone" || value === "static") return value;
+  throw new Error(`Invalid --mode "${value}". Expected standalone or static.`);
 }
 
 function parseOpenFlag(
@@ -225,15 +250,48 @@ function parseOpen(argv: string[]): CliCommand {
     name: "open",
     reportDir: positional ?? values.dir ?? DEFAULT_OUT,
     port: parsePort(values.port),
+    timeoutMs: parseTimeout(values.timeout),
   };
+}
+
+function parseServe(argv: string[]): CliCommand {
+  const values = parseFlags(argv);
+  const positional = firstPositional(argv);
+  return {
+    name: "serve",
+    reportDir: positional ?? values.dir ?? DEFAULT_OUT,
+    port: parsePort(values.port),
+    timeoutMs: parseTimeout(values.timeout),
+  };
+}
+
+function parseTimeout(value: string | undefined): number {
+  if (value === undefined) return DEFAULT_SERVE_TIMEOUT_MS;
+  const match = value.match(/^(\d+)(ms|s|m|h)?$/);
+  if (!match) {
+    throw new Error(
+      `Invalid --timeout "${value}". Expected a duration such as 30m, 1h, or 0.`,
+    );
+  }
+  const amount = Number(match[1]);
+  const unit = match[2] ?? "ms";
+  const multiplier =
+    unit === "h"
+      ? 60 * 60 * 1000
+      : unit === "m"
+        ? 60 * 1000
+        : unit === "s"
+          ? 1000
+          : 1;
+  return amount * multiplier;
 }
 
 function parsePort(value: string | undefined): number {
   if (value === undefined) return DEFAULT_PORT;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) {
     throw new Error(
-      `Invalid --port "${value}". Expected an integer between 1 and 65535.`,
+      `Invalid --port "${value}". Expected an integer between 0 and 65535.`,
     );
   }
   return parsed;
@@ -313,6 +371,7 @@ Usage:
   doublcov cargo-llvm-cov
   doublcov lcov-capture
   doublcov build
+  doublcov build --mode static
   doublcov build --no-open
   doublcov open
 
@@ -321,6 +380,7 @@ Builder options:
   --sources <paths>   Comma-separated source directories or files. Defaults depend on the builder
   --extensions <exts> Comma-separated source extensions. Default: ${DEFAULT_SOURCE_EXTENSIONS_TEXT}
   --out <path>        Static report output directory. Default: coverage/report
+  --mode <mode>       Output mode: standalone or static. Default: standalone locally, static in CI
   --history <path>    History JSON file to read and update. Default: .doublcov/history.json
   --name <name>       Project/codebase name shown in the generated report title
   --customization <path> Theme and UI hook JSON file
@@ -330,7 +390,8 @@ Builder options:
   --bytecode <path>   Alias for --diagnostic foundry-bytecode:<path>
   --open              Open the generated report index.html. Default outside CI
   --no-open           Do not open the generated report. Default in CI and GitHub Actions
-  --port <number>     Deprecated and ignored
+  --port <number>     Local server port for static reports. Use 0 for an available port. Default: 0
+  --timeout <duration> Static server lifetime before shutdown. Default: 30m
   --                  Pass all remaining arguments to the underlying builder
 
 Build options:
@@ -338,6 +399,7 @@ Build options:
   --sources <paths>   Comma-separated source directories or files. Default: src
   --extensions <exts> Comma-separated source extensions. Default: ${DEFAULT_SOURCE_EXTENSIONS_TEXT}
   --out <path>        Static report output directory. Default: coverage/report
+  --mode <mode>       Output mode: standalone or static. Default: standalone locally, static in CI
   --history <path>    History JSON file to read and update. Default: .doublcov/history.json
   --name <name>       Project/codebase name shown in the generated report title
   --customization <path> Theme and UI hook JSON file
@@ -347,6 +409,12 @@ Build options:
   --bytecode <path>   Alias for --diagnostic foundry-bytecode:<path>
   --open              Open the generated report index.html. Default outside CI
   --no-open           Do not open the generated report. Default in CI and GitHub Actions
+  --port <number>     Local server port for static reports. Use 0 for an available port. Default: 0
+  --timeout <duration> Static server lifetime before shutdown. Default: 30m
+
+Open options:
+  --port <number>     Local server port for static reports. Use 0 for an available port. Default: 0
+  --timeout <duration> Static server lifetime before shutdown. Default: 30m
 
 Builder defaults:
   CLI flags override ${DEFAULT_CUSTOMIZATION}. Builder commands also read project config such as package.json,

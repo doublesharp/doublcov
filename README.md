@@ -143,12 +143,19 @@ Doublcov automatically reads `doublcov.config.json` from the current working dir
 Configuration supports:
 
 - `open` to control whether the generated `index.html` opens after `build` or builder commands
-- `lcov`, `out`, `sources`, `extensions`, `history`, and `name` defaults
+- `mode`, `lcov`, `out`, `sources`, `extensions`, `history`, and `name` defaults
 - `defaultTheme`
 - custom `themes`
 - declarative hooks for `report:header`, `report:summary`, `file:toolbar`, and `sidebar:panel`
 
 Reports open automatically after local `build` and builder commands. CI and the GitHub Action default to `--no-open`. Use `--open` or `--no-open` to override that behavior for a single run.
+
+Output modes:
+
+- `standalone` writes a self-contained `index.html` that can be opened from disk. This is the local default.
+- `static` writes `index.html`, assets, and lazy-loaded JSON files for large projects and static hosts. This is the CI default.
+
+Use `doublcov open coverage/report` to view any existing report. It opens standalone reports directly from disk and serves static reports on an available local port. The local server runs in the foreground and shuts down automatically unless extended from the browser.
 
 For builder commands, default paths come from CLI flags first, then `doublcov.config.json`, then project config such as `package.json`, `foundry.toml`, Hardhat source paths, Jest/Vitest/c8 config, `.solcover.js`, or `pyproject.toml`. If no report output is configured, the report is written to a `report` directory next to the resolved LCOV file.
 
@@ -173,7 +180,7 @@ doublcov forge --debug coverage.debug --bytecode coverage.bytecode
 
 ## CI And Hosting
 
-Reports are static directories with a self-contained `index.html`. Open `coverage/report/index.html` directly from disk, or upload `coverage/report` to CI artifacts, GitHub Pages, GitLab Pages, Cloudflare Pages, Netlify, Vercel, object storage, or any static file server.
+Standalone reports can be opened directly from disk. Static reports are better for large projects and can be uploaded to CI artifacts, GitHub Pages, GitLab Pages, Cloudflare Pages, Netlify, Vercel, object storage, or any static file server.
 
 GitHub Actions example:
 
@@ -184,7 +191,7 @@ GitHub Actions example:
     args: --lcov coverage/lcov.info --sources src --out coverage/report
 ```
 
-Add `version: v0.2.1` when you want to pin the downloaded Doublcov binary instead of using the latest release.
+Add `version: v0.3.0` when you want to pin the downloaded Doublcov binary instead of using the latest release.
 
 Use the npm package for Node projects, the GitHub Action for language-neutral CI, standalone binaries for local non-Node use, and Docker when your CI standardizes on containers. See [CI And Hosting](docs/CI.md) and [Releasing](docs/RELEASING.md).
 

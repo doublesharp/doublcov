@@ -2,7 +2,7 @@
 
 Doublcov reports are static artifacts. CI should generate LCOV, run Doublcov, then upload or publish the output directory.
 
-CI environments default to `--no-open`, and the GitHub Action injects `--no-open` unless `args` already contains `--open` or `--no-open`.
+CI environments default to `--mode static` and `--no-open`. Static mode keeps `index.html`, assets, `data/report.json`, and per-file source payloads as separate files so large reports do not have to parse one huge HTML file up front. The GitHub Action injects `--no-open` unless `args` already contains `--open` or `--no-open`.
 
 ## Generic CI Flow
 
@@ -10,6 +10,7 @@ CI environments default to `--no-open`, and the GitHub Action injects `--no-open
 doublcov build \
   --lcov lcov.info \
   --sources src \
+  --mode static \
   --no-open
 ```
 
@@ -41,7 +42,7 @@ For projects in any language, the official action downloads the release binary, 
 ```
 
 Use the moving major action ref for compatible action updates. Omit `version`
-to download the latest GitHub Release binary, or set `version: v0.2.1` to pin
+to download the latest GitHub Release binary, or set `version: v0.3.0` to pin
 the downloaded CLI binary for reproducible CI.
 
 To install `doublcov` into `PATH` and run multiple commands:
@@ -49,11 +50,21 @@ To install `doublcov` into `PATH` and run multiple commands:
 ```yaml
 - uses: doublesharp/doublcov@v0
   with:
-    version: v0.2.1
+    version: v0.3.0
     install-only: "true"
 
 - run: doublcov build --lcov coverage/lcov.info --sources src --out coverage/report --no-open
 ```
+
+## Local Preview
+
+Static reports need an HTTP origin for lazy-loaded JSON. Preview them locally with:
+
+```bash
+doublcov open coverage/report
+```
+
+`open` detects the report type. Standalone reports open directly from disk; static reports bind to an available `127.0.0.1` port, open the browser, and run in the foreground. Static preview stops on Ctrl+C or after 30 minutes. The served page shows a prompt that can extend the timeout.
 
 ## Per-Framework CI Snippets
 

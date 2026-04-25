@@ -86,6 +86,15 @@ Local builds open the generated `index.html` automatically. Open an existing rep
 doublcov open coverage/report
 ```
 
+For large projects or hosted reports, generate split static assets:
+
+```bash
+doublcov build --mode static --no-open
+doublcov open coverage/report
+```
+
+`standalone` mode is the local default and writes a self-contained `index.html` that can be opened from disk. `static` mode is the CI default and writes `index.html`, assets, and lazy-loaded JSON files for GitHub Pages and other static hosts. `doublcov open` detects the report type: standalone reports open directly, and static reports are served on an available local port. Static preview runs in the foreground and stops automatically after 30 minutes unless extended from the browser.
+
 Generic `build` defaults:
 
 - LCOV path: `lcov.info`
@@ -212,13 +221,13 @@ Customization JSON can set `"open"` to control whether the generated `index.html
 
 The CLI automatically loads `doublcov.config.json` from the current working directory when it exists. Use `--customization <path>` to override the path. An explicitly supplied customization path must exist.
 
-Local builds open by default. CI and the GitHub Action default to `--no-open`. Use `--open` or `--no-open` to override that behavior for one run.
+Local builds open by default. CI and the GitHub Action default to `--mode static --no-open`. Use `--mode`, `--open`, or `--no-open` to override that behavior for one run.
 
 Builder command defaults resolve from CLI flags first, then `doublcov.config.json`, then project config such as `package.json`, `foundry.toml`, Hardhat source paths, Jest/Vitest/c8 config, `.solcover.js`, or `pyproject.toml`. When no report output is configured, Doublcov writes the report to a `report` directory next to the resolved LCOV file.
 
 ## Output Hosting
 
-The generated report directory is static. Open `coverage/report/index.html` directly from disk, or upload `coverage/report` to GitHub Pages, GitLab Pages, Netlify, Vercel, Cloudflare Pages, object storage, or CI artifacts.
+Standalone reports can be opened directly from disk. Static reports are better for large projects and can be uploaded to GitHub Pages, GitLab Pages, Netlify, Vercel, Cloudflare Pages, object storage, or CI artifacts.
 
 ## GitHub Action
 
@@ -232,7 +241,7 @@ For non-Node projects, use the repository action to download the standalone bina
 ```
 
 Use the moving major action ref for compatible action updates. Omit `version`
-to download the latest GitHub Release binary, or set `version: v0.2.1` to pin
+to download the latest GitHub Release binary, or set `version: v0.3.0` to pin
 the downloaded CLI binary for reproducible CI.
 The action passes `--no-open` by default. Add `--open` to `args` only when the workflow intentionally has a browser-capable environment.
 

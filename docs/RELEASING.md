@@ -17,7 +17,7 @@ Additional install channels should consume the tagged GitHub Release binaries an
 
 ## Release Workflow
 
-Tagged stable semver pushes (`v*.*.*`) trigger [`.github/workflows/release.yml`](../.github/workflows/release.yml). Release tags are immutable version tags such as `v0.2.1`; moving major tags such as `v0` are maintained by the workflow and must not create releases themselves. The release jobs are:
+Tagged stable semver pushes (`v*.*.*`) trigger [`.github/workflows/release.yml`](../.github/workflows/release.yml). Release tags are immutable version tags such as `v0.3.0`; moving major tags such as `v0` are maintained by the workflow and must not create releases themselves. The release jobs are:
 
 1. **`verify`** — `pnpm run verify:publish` (build + typecheck + tests + npm-pack smoke).
 2. **`binary`** — matrix across `linux-x64`, `linux-arm64`, `macos-x64`, `macos-arm64`, `windows-x64`. Each runner builds its native standalone binary.
@@ -44,7 +44,7 @@ Use the action `version` input to control which Doublcov binary the action downl
 ```yaml
 - uses: doublesharp/doublcov@v0
   with:
-    version: v0.2.1
+    version: v0.3.0
 ```
 
 Omit `version` to download the latest GitHub Release binary. Pin `version` in reproducible CI examples; omit it in quick-start examples where following the latest release is acceptable.

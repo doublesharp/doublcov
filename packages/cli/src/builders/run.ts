@@ -41,6 +41,9 @@ export async function runCoverageBuilder(
       sourceExtensions: resolvedOptions.sourceExtensions,
       out: resolvedOptions.out,
       history: resolvedOptions.history,
+      port: resolvedOptions.port,
+      timeoutMs: resolvedOptions.timeoutMs,
+      ...(resolvedOptions.mode ? { mode: resolvedOptions.mode } : {}),
       diagnostics: [
         ...resolvedOptions.diagnostics,
         ...(prepared.diagnostics ?? []),
@@ -56,11 +59,17 @@ export async function runCoverageBuilder(
         sourceExtensions: true,
         out: true,
         history: true,
+        mode: true,
         name: true,
       },
     };
     const result = await buildReport(buildOptions);
-    if (result.open) await openReport(result.outDir, resolvedOptions.port);
+    if (result.open)
+      await openReport(result.outDir, {
+        mode: result.mode,
+        port: resolvedOptions.port,
+        timeoutMs: resolvedOptions.timeoutMs,
+      });
   } finally {
     await prepared.cleanup?.();
   }
@@ -110,6 +119,9 @@ export function resolveBuilderOptions(
   const name = options.explicit?.name
     ? options.name
     : (config.name ?? projectDefaults.name ?? options.name);
+  const mode = options.explicit?.mode
+    ? options.mode
+    : (config.mode ?? options.mode);
 
   return {
     ...options,
@@ -118,6 +130,7 @@ export function resolveBuilderOptions(
     sources,
     sourceExtensions,
     history,
+    ...(mode ? { mode } : {}),
     ...(name ? { name } : {}),
   };
 }

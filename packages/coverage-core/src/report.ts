@@ -25,15 +25,21 @@ export function buildCoverageBundle(
   input: BuildReportInput,
 ): BuiltCoverageBundle {
   const generatedAt = new Date().toISOString();
+  const projectRoot = input.projectRoot
+    ? normalizePath(input.projectRoot)
+    : undefined;
   const sourcesByPath = new Map(
-    input.sourceFiles.map((file) => [normalizePath(file.path), file.content]),
+    input.sourceFiles.map((file) => [
+      normalizeSourcePath(file.path, projectRoot),
+      file.content,
+    ]),
   );
-  const lcovRecords = mergeLcovRecords(parseLcov(input.lcov));
+  const lcovRecords = mergeLcovRecords(parseLcov(input.lcov), projectRoot);
 
   const sourcePayloads: SourceFilePayload[] = [];
   const missingSourceDiagnostics: CoverageDiagnostic[] = [];
   const files: SourceFileCoverage[] = lcovRecords.map((record, index) => {
-    const normalizedPath = normalizePath(record.sourceFile);
+    const normalizedPath = normalizeSourcePath(record.sourceFile, projectRoot);
     const language = detectSourceLanguage(normalizedPath);
     const sourceMatch = findSourceContent(sourcesByPath, normalizedPath);
     if (!sourceMatch.found) {
@@ -198,10 +204,13 @@ function addIgnoredLineReasons(
   return totals;
 }
 
-function mergeLcovRecords(records: LcovRecord[]): LcovRecord[] {
+function mergeLcovRecords(
+  records: LcovRecord[],
+  projectRoot?: string,
+): LcovRecord[] {
   const byPath = new Map<string, LcovRecord>();
   for (const record of records) {
-    const normalizedPath = normalizePath(record.sourceFile);
+    const normalizedPath = normalizeSourcePath(record.sourceFile, projectRoot);
     const existing = byPath.get(normalizedPath);
     if (!existing) {
       byPath.set(normalizedPath, {
@@ -351,6 +360,15 @@ function stableFileId(index: number, filePath: string): string {
 
 export function normalizePath(filePath: string): string {
   return filePath.replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+function normalizeSourcePath(filePath: string, projectRoot?: string): string {
+  const normalized = normalizePath(filePath);
+  if (!projectRoot) return normalized;
+  const root = projectRoot.replace(/\/+$/, "");
+  if (normalized === root) return normalized.split("/").at(-1) ?? normalized;
+  if (!normalized.startsWith(`${root}/`)) return normalized;
+  return normalized.slice(root.length + 1);
 }
 
 function stripLeadingDot(filePath: string): string {

@@ -18,7 +18,9 @@ doublcov build \
 
 Local builds open the generated report by default. CI and the GitHub Action default to `--no-open`. Use `--open` or `--no-open` to override that behavior for a single run.
 
-Doublcov automatically attempts to load `doublcov.config.json` from the current working directory. If the default file is absent, the build continues without customization. Theme and hook customization from the config is embedded into the generated report; workflow fields such as `lcov`, `out`, `history`, `name`, and `open` only affect the CLI run.
+`--mode standalone` writes a self-contained `index.html` that works from disk and is the local default. `--mode static` writes split assets and lazy-loaded JSON for large reports and static hosting; CI defaults to static mode. Use `doublcov open coverage/report` to preview any report locally. It opens standalone reports directly and serves static reports from an available local port.
+
+Doublcov automatically attempts to load `doublcov.config.json` from the current working directory. If the default file is absent, the build continues without customization. Theme and hook customization from the config is embedded into the generated report; workflow fields such as `mode`, `lcov`, `out`, `history`, `name`, and `open` only affect the CLI run.
 
 ## Default Precedence
 
@@ -37,6 +39,7 @@ When a builder resolves an LCOV path and no report output directory is set, Doub
 ```json
 {
   "open": true,
+  "mode": "standalone",
   "lcov": "coverage/lcov.info",
   "out": "coverage/report",
   "sources": ["src"],
@@ -132,7 +135,7 @@ out = "coverage/foundry/report"
 
 Hardhat config files are executable JavaScript or TypeScript, so Doublcov reads only simple static defaults without importing the config. It detects `paths.sources`, a simple `doublcov: { ... }` object, and `.solcover.js` `coverageDir` or `coverageDirectory` values. For complex Hardhat configs, prefer `package.json` or `doublcov.config.json`.
 
-`lcov`, `out`, `history`, `name`, and `open` are CLI workflow settings only. They are not embedded into the report JSON.
+`mode`, `lcov`, `out`, `history`, `name`, and `open` are CLI workflow settings only. They are not embedded into the report JSON.
 
 ## Theme Tokens
 

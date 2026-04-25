@@ -458,6 +458,41 @@ end_of_record`,
     ).toHaveLength(0);
   });
 
+  it("stores LCOV paths inside the project root as repo-relative paths", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `TN:
+SF:/home/runner/work/abi-typegen/abi-typegen/crates/abi/src/lib.rs
+FN:2,parse
+FNDA:0,parse
+DA:1,1
+DA:2,0
+end_of_record`,
+      sourceFiles: [
+        {
+          path: "crates/abi/src/lib.rs",
+          content: "pub fn parse() {\n    todo!()\n}\n",
+        },
+      ],
+      projectRoot: "/home/runner/work/abi-typegen/abi-typegen",
+    });
+
+    expect(bundle.report.files[0]).toMatchObject({
+      path: "crates/abi/src/lib.rs",
+      sourceDataPath: "data/files/0001-crates-abi-src-lib-rs.json",
+    });
+    expect(bundle.sourcePayloads[0]).toMatchObject({
+      path: "crates/abi/src/lib.rs",
+    });
+    expect(bundle.report.uncoveredItems[0]).toMatchObject({
+      filePath: "crates/abi/src/lib.rs",
+    });
+    expect(
+      bundle.report.diagnostics.filter(
+        (diagnostic) => diagnostic.source === "doublcov",
+      ),
+    ).toHaveLength(0);
+  });
+
   it("carries report customization metadata through the generic bundle", () => {
     const bundle = buildCoverageBundle({
       lcov,

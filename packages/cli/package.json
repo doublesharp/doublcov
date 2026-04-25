@@ -1,6 +1,6 @@
 {
   "name": "@0xdoublesharp/doublcov",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Find what's missing with static LCOV coverage reports",
   "license": "MIT",
   "author": "0xdoublesharp",

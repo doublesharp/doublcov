@@ -2,7 +2,7 @@
 import { parseCommand, helpText } from "./args.js";
 import { buildReport } from "./build.js";
 import { runCoverageBuilder } from "./builders/run.js";
-import { openReport } from "./server.js";
+import { openReport, serveReport } from "./server.js";
 
 async function main(): Promise<void> {
   const command = parseCommand(process.argv.slice(2));
@@ -12,14 +12,30 @@ async function main(): Promise<void> {
   }
   if (command.name === "build") {
     const result = await buildReport(command.options);
-    if (result.open) await openReport(result.outDir);
+    if (result.open)
+      await openReport(result.outDir, {
+        mode: result.mode,
+        port: command.options.port,
+        timeoutMs: command.options.timeoutMs,
+      });
     return;
   }
   if (command.name === "builder") {
     await runCoverageBuilder(command.builder, command.options);
     return;
   }
-  await openReport(command.reportDir, command.port);
+  if (command.name === "serve") {
+    await serveReport(command.reportDir, {
+      port: command.port,
+      timeoutMs: command.timeoutMs,
+      open: true,
+    });
+    return;
+  }
+  await openReport(command.reportDir, {
+    port: command.port,
+    timeoutMs: command.timeoutMs,
+  });
 }
 
 main().catch((error: unknown) => {

@@ -11,6 +11,7 @@ import {
   replaceLiteralOnce,
   resolveBuildOptions,
   resolveAutoOpen,
+  resolveReportMode,
   sanitizeCustomization,
   sanitizeHistory,
 } from "../src/build.js";
@@ -197,6 +198,18 @@ describe("formatGeneratedReportMessage", () => {
     );
     expect(message).toContain("Open report: /tmp/doublcov/report/index.html");
     expect(message).not.toContain("file://");
+
+    const staticMessage = formatGeneratedReportMessage(
+      report,
+      "/tmp/doublcov/report",
+      "static",
+    );
+    expect(staticMessage).toContain(
+      "Open report: doublcov open /tmp/doublcov/report",
+    );
+    expect(staticMessage).toContain(
+      "Static index: /tmp/doublcov/report/index.html",
+    );
   });
 });
 
@@ -215,6 +228,7 @@ describe("report config", () => {
         out: "custom/report",
         history: ".custom/history.json",
         name: "Configured",
+        mode: "static",
       }),
       "utf8",
     );
@@ -228,6 +242,7 @@ describe("report config", () => {
       out: "custom/report",
       history: ".custom/history.json",
       name: "Configured",
+      mode: "static",
     });
     expect(config.customization).toEqual({ defaultTheme: "dark" });
   });
@@ -241,6 +256,8 @@ describe("report config", () => {
           sourceExtensions: [".ts"],
           out: "coverage/report",
           history: ".doublcov/history.json",
+          port: 0,
+          timeoutMs: 30 * 60 * 1000,
           diagnostics: [],
           explicit: {
             lcov: true,
@@ -286,5 +303,18 @@ describe("report config", () => {
     expect(isCiEnvironment({ GITHUB_ACTIONS: "true" })).toBe(true);
     expect(isCiEnvironment({ CI: "false" })).toBe(false);
     expect(isCiEnvironment({ CI: "0" })).toBe(false);
+  });
+
+  it("uses standalone mode locally and static mode in CI unless configured", () => {
+    expect(resolveReportMode(undefined, {}, {})).toBe("standalone");
+    expect(resolveReportMode(undefined, {}, { GITHUB_ACTIONS: "true" })).toBe(
+      "static",
+    );
+    expect(
+      resolveReportMode(undefined, { mode: "standalone" }, { CI: "1" }),
+    ).toBe("standalone");
+    expect(resolveReportMode("static", { mode: "standalone" }, {})).toBe(
+      "static",
+    );
   });
 });
