@@ -365,16 +365,22 @@ async function inferProjectName(projectRoot: string): Promise<string> {
 async function readPackageName(
   packageJsonPath: string,
 ): Promise<string | undefined> {
+  let text: string;
   try {
-    const packageJson = JSON.parse(
-      await fs.readFile(packageJsonPath, "utf8"),
-    ) as { name?: unknown };
-    return typeof packageJson.name === "string" && packageJson.name.trim()
-      ? packageJson.name.trim()
-      : undefined;
+    text = await fs.readFile(packageJsonPath, "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
+  }
+  try {
+    const packageJson = JSON.parse(text) as { name?: unknown };
+    return typeof packageJson.name === "string" && packageJson.name.trim()
+      ? packageJson.name.trim()
+      : undefined;
+  } catch {
+    // package.json is unparseable — name inference is best-effort, so fall
+    // back to the directory name rather than crashing the build.
+    return undefined;
   }
 }
 
@@ -547,7 +553,7 @@ export function formatGeneratedReportMessage(
   return `${lines.join("\n")}\n`;
 }
 
-function escapeHtmlRawText(
+export function escapeHtmlRawText(
   text: string,
   elementName: "script" | "style",
 ): string {

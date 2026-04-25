@@ -34,11 +34,18 @@ export async function readJsonIfPresent<T>(
   filePath: string | undefined,
 ): Promise<T | undefined> {
   if (!filePath) return undefined;
+  let text: string;
   try {
-    return JSON.parse(await fs.readFile(filePath, "utf8")) as T;
+    text = await fs.readFile(filePath, "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not parse JSON at ${filePath}: ${reason}`);
   }
 }
 
@@ -78,7 +85,13 @@ export async function readSourceFiles(
     ),
   );
   const sourceRoots = new Set(inputs.map((input) => path.resolve(root, input)));
-  const inputFiles = await collectFiles([...sourceRoots], sourceRoots, root);
+  const visited = new Set<string>();
+  const inputFiles = await collectFiles(
+    [...sourceRoots],
+    sourceRoots,
+    root,
+    visited,
+  );
   const includedFiles = await collectExistingFiles(
     options.includePaths ?? [],
     root,
@@ -108,6 +121,7 @@ async function collectFiles(
   inputs: string[],
   sourceRoots: Set<string>,
   root: string,
+  visited: Set<string>,
 ): Promise<string[]> {
   const found: string[] = [];
   for (const input of inputs) {
@@ -115,7 +129,8 @@ async function collectFiles(
     try {
       stat = await fs.stat(input);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ELOOP") continue;
       throw error;
     }
     if (stat.isDirectory()) {
@@ -125,11 +140,20 @@ async function collectFiles(
       if (ignoredAtAnyDepth.has(basename) && !isExplicitRoot) continue;
       if (ignoredAtRoot.has(basename) && !isExplicitRoot && isTopLevelDirectory)
         continue;
+      let realDirPath: string;
+      try {
+        realDirPath = await fs.realpath(input);
+      } catch {
+        realDirPath = input;
+      }
+      if (visited.has(realDirPath)) continue;
+      visited.add(realDirPath);
       const entries = await fs.readdir(input);
       const nested = await collectFiles(
         entries.map((entry) => path.join(input, entry)),
         sourceRoots,
         root,
+        visited,
       );
       found.push(...nested);
     } else {
