@@ -18,6 +18,7 @@
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist *.tsbuildinfo",
     "test": "vitest run",
+    "test:fuzz": "vitest run test/fuzz.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

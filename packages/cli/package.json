@@ -49,6 +49,7 @@
     "clean": "rm -rf dist *.tsbuildinfo",
     "prepublishOnly": "pnpm -w run verify:publish",
     "test": "vitest run",
+    "test:fuzz": "vitest run test/fuzz.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "publishConfig": {
