@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BuilderOptions } from "../src/args.js";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { c8Builder } from "../src/builders/c8.js";
 import { foundryBuilder } from "../src/builders/foundry.js";
 import { hardhatBuilder } from "../src/builders/hardhat.js";
@@ -822,6 +823,110 @@ describe("readBuilderProjectDefaults edge cases", () => {
     ).resolves.toEqual({});
   });
 
+  it("parses single-line TOML arrays in foundry.toml", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "doublcov-foundry-1l-"));
+    await writeFile(
+      path.join(root, "foundry.toml"),
+      [
+        "[profile.default]",
+        'src = ["contracts", "vendor"]',
+      ].join("\n"),
+      "utf8",
+    );
+    const defaults = await readBuilderProjectDefaults(
+      "foundry",
+      foundryBuilder,
+      root,
+    );
+    expect(defaults.sources).toEqual(["contracts", "vendor"]);
+  });
+
+  it("ignores foundry.toml profiles other than profile.default", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "doublcov-foundry-ci-"));
+    await writeFile(
+      path.join(root, "foundry.toml"),
+      [
+        "[profile.default]",
+        'src = "default-src"',
+        "",
+        "[profile.ci]",
+        'src = "ci-src"',
+        'optimizer = false',
+      ].join("\n"),
+      "utf8",
+    );
+    const defaults = await readBuilderProjectDefaults(
+      "foundry",
+      foundryBuilder,
+      root,
+    );
+    // profile.ci must NOT be merged into the resolved defaults.
+    expect(defaults.sources).toEqual(["default-src"]);
+  });
+
+  it("parses bare TOML boolean values without crashing", async () => {
+    // Forces parseSimpleValue down its 'false' branch via a non-quoted
+    // boolean assignment under [profile.default]. Even though we don't act
+    // on it, the parser must accept it cleanly.
+    const root = await mkdtemp(path.join(tmpdir(), "doublcov-foundry-bool-"));
+    await writeFile(
+      path.join(root, "foundry.toml"),
+      [
+        "[profile.default]",
+        "via_ir = false",
+        'src = "contracts"',
+      ].join("\n"),
+      "utf8",
+    );
+    const defaults = await readBuilderProjectDefaults(
+      "foundry",
+      foundryBuilder,
+      root,
+    );
+    expect(defaults.sources).toEqual(["contracts"]);
+  });
+
+  it("returns empty defaults when hardhat 'paths' object literal never closes its braces", async () => {
+    // Truncated config: extractObjectLiteral must walk to end-of-string and
+    // return undefined, leaving us with no sources rather than throwing.
+    const root = await mkdtemp(path.join(tmpdir(), "doublcov-hardhat-trunc-"));
+    await writeFile(
+      path.join(root, "hardhat.config.ts"),
+      // Note: never closes the outer brace.
+      'export default { paths: { sources: "src/contracts"',
+      "utf8",
+    );
+    const defaults = await readBuilderProjectDefaults(
+      "hardhat",
+      hardhatBuilder,
+      root,
+    );
+    expect(defaults.sources).toBeUndefined();
+  });
+
+  it("vitest config with coverage:false (not an object) yields no reportsDirectory", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "doublcov-vitest-disabled-"));
+    await writeFile(
+      path.join(root, "vitest.config.ts"),
+      [
+        "import { defineConfig } from 'vitest/config';",
+        "export default defineConfig({",
+        "  test: {",
+        "    coverage: false,",
+        "  },",
+        "});",
+      ].join("\n"),
+      "utf8",
+    );
+    const defaults = await readBuilderProjectDefaults(
+      "vite",
+      viteBuilder,
+      root,
+    );
+    expect(defaults.lcov).toBeUndefined();
+    expect(defaults.out).toBeUndefined();
+  });
+
   it("matchObjectArray ignores keys that share a property suffix", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "doublcov-arr-prefix-"));
     await writeFile(
@@ -1023,6 +1128,235 @@ describe("resolveBuilderOptions branches", () => {
       { history: "project/history.json" },
     );
     expect(resolved.history).toBe("config/history.json");
+  });
+});
+
+describe("runCoverageBuilder success path", () => {
+  const FIXTURE_DIR = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../fixtures/simple",
+  );
+  let workspace: string;
+  let originalCwd: string;
+  let writeSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    workspace = await realpath(
+      await mkdtemp(path.join(tmpdir(), "doublcov-runner-")),
+    );
+    await cp(FIXTURE_DIR, workspace, { recursive: true });
+    originalCwd = process.cwd();
+    process.chdir(workspace);
+    writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+
+  afterEach(async () => {
+    writeSpy.mockRestore();
+    process.chdir(originalCwd);
+    await rm(workspace, { recursive: true, force: true });
+  });
+
+  it("invokes openReport with the resolved mode/port when result.open is true", async () => {
+    // Spy on the server module so the success path triggers openReport
+    // without actually launching a browser.
+    const serverModule = await import("../src/server.js");
+    const openSpy = vi
+      .spyOn(serverModule, "openReport")
+      .mockResolvedValue(undefined);
+    try {
+      const fixtureLcov = path.join(workspace, "lcov.info");
+      const builder: CoverageBuilderPlugin = {
+        id: "open-on-success",
+        aliases: [],
+        label: "Open On Success",
+        description: "",
+        async prepareRun() {
+          return {
+            command: "node",
+            args: ["-e", "process.exit(0)"],
+            lcov: fixtureLcov,
+          };
+        },
+      };
+      registerCoverageBuilder(builder);
+      try {
+        await runCoverageBuilder(
+          "open-on-success",
+          builderOptions({
+            lcov: fixtureLcov,
+            sources: ["src"],
+            sourceExtensions: [".sol"],
+            out: path.join(workspace, "coverage", "report"),
+            history: path.join(workspace, ".doublcov", "history.json"),
+            open: true,
+            mode: "static",
+            port: 0,
+            timeoutMs: 60_000,
+            explicit: {
+              lcov: true,
+              sources: true,
+              sourceExtensions: true,
+              out: true,
+              history: true,
+              name: false,
+            },
+          }),
+        );
+      } finally {
+        const index = coverageBuilders.findIndex(
+          (candidate) => candidate.id === "open-on-success",
+        );
+        if (index !== -1) coverageBuilders.splice(index, 1);
+      }
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      const [reportDir, opts] = openSpy.mock.calls[0] ?? [];
+      expect(reportDir).toBe(path.join(workspace, "coverage", "report"));
+      expect(opts).toMatchObject({ mode: "static", port: 0 });
+    } finally {
+      openSpy.mockRestore();
+    }
+  });
+
+  it("runs prepareRun, the command, then buildReport without opening when open=false", async () => {
+    let prepareCalled = false;
+    let cleanupCalled = false;
+    const fixtureLcov = path.join(workspace, "lcov.info");
+    const builder: CoverageBuilderPlugin = {
+      id: "happy-path-runner",
+      aliases: [],
+      label: "Happy Path Runner",
+      description: "Runs successfully and produces an LCOV file",
+      async prepareRun() {
+        prepareCalled = true;
+        return {
+          // Use a no-op command; we already have a real lcov.info from the
+          // fixture so buildReport can succeed without a real coverage tool.
+          command: "node",
+          args: ["-e", "process.exit(0)"],
+          lcov: fixtureLcov,
+          cleanup: async () => {
+            cleanupCalled = true;
+          },
+        };
+      },
+    };
+    registerCoverageBuilder(builder);
+    try {
+      await runCoverageBuilder(
+        "happy-path-runner",
+        builderOptions({
+          lcov: fixtureLcov,
+          sources: ["src"],
+          sourceExtensions: [".sol"],
+          out: path.join(workspace, "coverage", "report"),
+          history: path.join(workspace, ".doublcov", "history.json"),
+          open: false,
+          // Force static mode so buildReport doesn't try to inline the
+          // standalone HTML (avoids needing a particular index.html shape).
+          mode: "static",
+          explicit: {
+            lcov: true,
+            sources: true,
+            sourceExtensions: true,
+            out: true,
+            history: true,
+            name: false,
+          },
+        }),
+      );
+    } finally {
+      const index = coverageBuilders.findIndex(
+        (candidate) => candidate.id === "happy-path-runner",
+      );
+      if (index !== -1) coverageBuilders.splice(index, 1);
+    }
+    expect(prepareCalled).toBe(true);
+    expect(cleanupCalled).toBe(true);
+  });
+});
+
+describe("runCoverageBuilder argument quoting", () => {
+  let writeSpy: ReturnType<typeof vi.spyOn>;
+  let chunks: string[];
+
+  beforeEach(() => {
+    chunks = [];
+    writeSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk: string | Uint8Array) => {
+        chunks.push(
+          typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(),
+        );
+        return true;
+      });
+  });
+
+  afterEach(() => {
+    writeSpy.mockRestore();
+  });
+
+  it("single-quotes args containing shell metacharacters (;, |, &&) before logging", async () => {
+    const builder: CoverageBuilderPlugin = {
+      id: "shell-meta-test",
+      aliases: [],
+      label: "Shell Meta Test",
+      description: "",
+      async prepareRun() {
+        return {
+          command: "node",
+          args: ["-e", "process.exit(2); rm -rf /", "x|y", "a&&b"],
+          lcov: "/tmp/never-written.lcov",
+        };
+      },
+    };
+    registerCoverageBuilder(builder);
+    try {
+      await expect(
+        runCoverageBuilder("shell-meta-test", builderOptions()),
+      ).rejects.toThrow(/exited with status/);
+    } finally {
+      const index = coverageBuilders.findIndex(
+        (candidate) => candidate.id === "shell-meta-test",
+      );
+      if (index !== -1) coverageBuilders.splice(index, 1);
+    }
+    const printed = chunks.join("");
+    // Each metachar-bearing arg must be inside single quotes; the dangerous
+    // tokens must NOT appear unescaped on the command line.
+    expect(printed).toContain("'process.exit(2); rm -rf /'");
+    expect(printed).toContain("'x|y'");
+    expect(printed).toContain("'a&&b'");
+  });
+
+  it("escapes embedded single quotes via the '\\'' shell sequence", async () => {
+    const builder: CoverageBuilderPlugin = {
+      id: "single-quote-test",
+      aliases: [],
+      label: "Single Quote Test",
+      description: "",
+      async prepareRun() {
+        return {
+          command: "node",
+          args: ["-e", "console.log('hi'); process.exit(4)"],
+          lcov: "/tmp/never-written.lcov",
+        };
+      },
+    };
+    registerCoverageBuilder(builder);
+    try {
+      await expect(
+        runCoverageBuilder("single-quote-test", builderOptions()),
+      ).rejects.toThrow(/exited with status 4/);
+    } finally {
+      const index = coverageBuilders.findIndex(
+        (candidate) => candidate.id === "single-quote-test",
+      );
+      if (index !== -1) coverageBuilders.splice(index, 1);
+    }
+    const printed = chunks.join("");
+    // The literal "'\\''" sequence is how POSIX shell escapes a single quote
+    // inside a single-quoted string. The arg must round-trip safely.
+    expect(printed).toContain(String.raw`'console.log('\''hi'\''); process.exit(4)'`);
   });
 });
 

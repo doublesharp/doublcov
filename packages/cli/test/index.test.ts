@@ -156,6 +156,29 @@ describe("run()", () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it("stringifies a thrown number to stderr", async () => {
+    mockedBuild.mockRejectedValue(42);
+    await run(["build"]);
+    expect(stderrChunks.join("")).toBe("42\n");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("stringifies a thrown null to stderr without crashing", async () => {
+    // String(null) === "null"; verify the CLI does not blow up on a
+    // null-valued rejection (we lose information but stay alive).
+    mockedBuild.mockRejectedValue(null);
+    await run(["build"]);
+    expect(stderrChunks.join("")).toBe("null\n");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("stringifies a thrown plain object to stderr", async () => {
+    mockedBuild.mockRejectedValue({ shape: "weird" });
+    await run(["build"]);
+    expect(stderrChunks.join("")).toMatch(/object Object/);
+    expect(process.exitCode).toBe(1);
+  });
+
   it("succeeds with exit code unset for the help command", async () => {
     await run(["--help"]);
     expect(stderrChunks.join("")).toBe("");

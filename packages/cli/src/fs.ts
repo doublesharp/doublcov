@@ -171,6 +171,13 @@ async function collectFiles(
       );
       found.push(...nested);
     } else {
+      let realFilePath: string;
+      try {
+        realFilePath = await fs.realpath(input);
+      } catch {
+        realFilePath = input;
+      }
+      if (!isInsideRealRoot(realFilePath, realRoot)) continue;
       found.push(input);
     }
   }
@@ -210,7 +217,15 @@ function normalizeExtension(extension: string): string {
 
 function formatSourcePath(filePath: string, root: string): string {
   const relative = path.relative(root, filePath);
-  const isInsideRoot =
-    relative && !relative.startsWith("..") && !path.isAbsolute(relative);
-  return (isInsideRoot ? relative : filePath).replaceAll(path.sep, "/");
+  return (
+    isInsidePathRoot(filePath, root) && relative ? relative : filePath
+  ).replaceAll(path.sep, "/");
+}
+
+function isInsidePathRoot(filePath: string, root: string): boolean {
+  const relative = path.relative(root, filePath);
+  return (
+    relative === "" ||
+    (!relative.startsWith("..") && !path.isAbsolute(relative))
+  );
 }

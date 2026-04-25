@@ -222,6 +222,30 @@ describe("readSourceFiles", () => {
     }
   });
 
+  it("does not follow a symlinked source file that resolves outside the project root", async () => {
+    const srcDir = path.join(tempRoot, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(path.join(srcDir, "real.ts"), "inside\n", "utf8");
+
+    const outsideRoot = await realpath(
+      await mkdtemp(path.join(tmpdir(), "doublcov-outside-file-")),
+    );
+    try {
+      const outsideFile = path.join(outsideRoot, "secret.ts");
+      await writeFile(outsideFile, "leak\n", "utf8");
+      await symlink(outsideFile, path.join(srcDir, "secret.ts"));
+
+      const files = await readSourceFiles(["src"], {
+        root: tempRoot,
+        extensions: [".ts"],
+      });
+      expect(files.map((file) => file.path)).toEqual(["src/real.ts"]);
+      expect(files.every((file) => !file.content.includes("leak"))).toBe(true);
+    } finally {
+      await rm(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
   it("falls back to absolute path when a file resolves outside the root", async () => {
     const otherRoot = await realpath(
       await mkdtemp(path.join(tmpdir(), "doublcov-other-")),
@@ -235,9 +259,7 @@ describe("readSourceFiles", () => {
       });
       expect(files).toHaveLength(1);
       expect(files[0]?.path).toBe(
-        path
-          .join(otherRoot, "outside.ts")
-          .replaceAll(path.sep, "/"),
+        path.join(otherRoot, "outside.ts").replaceAll(path.sep, "/"),
       );
     } finally {
       await rm(otherRoot, { recursive: true, force: true });
@@ -253,7 +275,9 @@ describe("readSourceFiles", () => {
       root: tempRoot,
       extensions: [".ts"],
     });
-    expect(files.map((file) => file.path)).toEqual(["node_modules/vendored.ts"]);
+    expect(files.map((file) => file.path)).toEqual([
+      "node_modules/vendored.ts",
+    ]);
   });
 
   it("includes a file when the user explicitly passes coverage as a source root", async () => {
@@ -266,6 +290,68 @@ describe("readSourceFiles", () => {
       extensions: [".ts"],
     });
     expect(files.map((file) => file.path)).toEqual(["coverage/report.ts"]);
+  });
+
+  it("returns an empty list when the inputs array is empty", async () => {
+    const files = await readSourceFiles([], {
+      root: tempRoot,
+      extensions: [".ts"],
+    });
+    expect(files).toEqual([]);
+  });
+
+  it("falls back gracefully when the project root itself does not exist", async () => {
+    // realpath(root) will fail; readSourceFiles should still return [] instead
+    // of throwing on the realpath error.
+    const ghostRoot = path.join(tempRoot, "does", "not", "exist");
+    const files = await readSourceFiles(["src"], {
+      root: ghostRoot,
+      extensions: [".ts"],
+    });
+    expect(files).toEqual([]);
+  });
+
+  it("rethrows non-ENOENT/ELOOP stat errors (e.g. ENAMETOOLONG)", async () => {
+    // POSIX NAME_MAX is 255; a 300-character segment is guaranteed to exceed
+    // that on macOS/Linux and surface ENAMETOOLONG from stat(2).
+    const longSegment = "x".repeat(300);
+    const veryLong = path.join(tempRoot, "src", longSegment);
+    await mkdir(path.join(tempRoot, "src"), { recursive: true });
+    // We pass the unreasonably long path as an explicit input; stat will
+    // throw something that's neither ENOENT nor ELOOP.
+    await expect(
+      readSourceFiles([veryLong], {
+        root: tempRoot,
+        extensions: [".ts"],
+      }),
+    ).rejects.toMatchObject({
+      code: expect.stringMatching(/ENAMETOOLONG|EILSEQ|EINVAL/),
+    });
+  });
+
+  it("treats a root that is itself a symlink as the canonical root via realpath", async () => {
+    // When the user passes a path that's actually a symlink to the real root,
+    // readSourceFiles must canonicalize it so that the symlink-escape guard
+    // does not reject the project's own files.
+    const innerRoot = await realpath(
+      await mkdtemp(path.join(tmpdir(), "doublcov-real-")),
+    );
+    try {
+      await mkdir(path.join(innerRoot, "src"), { recursive: true });
+      await writeFile(path.join(innerRoot, "src", "real.ts"), "ok\n", "utf8");
+
+      const linkedRoot = path.join(tempRoot, "linked-root");
+      await symlink(innerRoot, linkedRoot);
+
+      const files = await readSourceFiles(["src"], {
+        root: linkedRoot,
+        extensions: [".ts"],
+      });
+      // Source file should be reachable through the symlinked-root view.
+      expect(files.map((file) => file.path)).toContain("src/real.ts");
+    } finally {
+      await rm(innerRoot, { recursive: true, force: true });
+    }
   });
 });
 

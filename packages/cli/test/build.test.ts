@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CoverageReport } from "@0xdoublesharp/doublcov-core";
+import type {
+  CoverageReport,
+  SourceFilePayload,
+} from "@0xdoublesharp/doublcov-core";
 import {
   cp,
   mkdtemp,
@@ -16,7 +19,10 @@ import {
   escapeHtmlRawText,
   escapeJsonForHtml,
   formatGeneratedReportMessage,
+  inlineModuleScript,
+  inlineStylesheets,
   isCiEnvironment,
+  makeIndexHtmlStandalone,
   readReportConfig,
   replaceLiteralOnce,
   resolveBuildOptions,
@@ -25,6 +31,7 @@ import {
   sanitizeCustomization,
   sanitizeHistory,
 } from "../src/build.js";
+import { mkdir } from "node:fs/promises";
 
 const FIXTURE_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -170,6 +177,140 @@ describe("sanitizeHistory", () => {
     });
     expect(result?.runs).toHaveLength(1);
     expect(result?.runs[0]?.id).toBe("abc");
+  });
+
+  it("drops a run whose totals contain non-numeric values", () => {
+    const result = sanitizeHistory({
+      schemaVersion: 1,
+      runs: [
+        {
+          id: "bad-totals",
+          timestamp: "2026-04-24T00:00:00.000Z",
+          totals: {
+            lines: { found: "10", hit: 5, percent: 50 },
+            functions: { found: 0, hit: 0, percent: 0 },
+            branches: { found: 0, hit: 0, percent: 0 },
+          },
+          files: [],
+        },
+      ],
+    });
+    expect(result?.runs).toHaveLength(0);
+  });
+
+  it("drops malformed file entries inside a run while keeping well-formed ones", () => {
+    const result = sanitizeHistory({
+      schemaVersion: 1,
+      runs: [
+        {
+          id: "abc",
+          timestamp: "2026-04-24T00:00:00.000Z",
+          commit: "deadbeef",
+          branch: "main",
+          totals: {
+            lines: { found: 10, hit: 5, percent: 50 },
+            functions: { found: 0, hit: 0, percent: 0 },
+            branches: { found: 0, hit: 0, percent: 0 },
+          },
+          files: [
+            {
+              path: "src/a.ts",
+              lines: { found: 4, hit: 2, percent: 50 },
+              functions: { found: 0, hit: 0, percent: 0 },
+              branches: { found: 0, hit: 0, percent: 0 },
+              uncovered: { lines: 2, functions: 0, branches: 0 },
+            },
+            // Missing path: dropped.
+            {
+              lines: { found: 4, hit: 2, percent: 50 },
+              functions: { found: 0, hit: 0, percent: 0 },
+              branches: { found: 0, hit: 0, percent: 0 },
+            },
+            // Missing branches totals: dropped.
+            {
+              path: "src/b.ts",
+              lines: { found: 4, hit: 2, percent: 50 },
+              functions: { found: 0, hit: 0, percent: 0 },
+            },
+            "not an object",
+          ],
+        },
+      ],
+    });
+    expect(result?.runs).toHaveLength(1);
+    const run = result?.runs[0];
+    expect(run?.commit).toBe("deadbeef");
+    expect(run?.branch).toBe("main");
+    expect(run?.files).toHaveLength(1);
+    expect(run?.files[0]).toMatchObject({
+      path: "src/a.ts",
+      uncovered: { lines: 2, functions: 0, branches: 0 },
+    });
+  });
+
+  it("defaults uncovered counts to 0 when uncovered is missing or has wrong types", () => {
+    const result = sanitizeHistory({
+      schemaVersion: 1,
+      runs: [
+        {
+          id: "abc",
+          timestamp: "2026-04-24T00:00:00.000Z",
+          totals: {
+            lines: { found: 10, hit: 5, percent: 50 },
+            functions: { found: 0, hit: 0, percent: 0 },
+            branches: { found: 0, hit: 0, percent: 0 },
+          },
+          files: [
+            {
+              path: "src/a.ts",
+              lines: { found: 4, hit: 2, percent: 50 },
+              functions: { found: 0, hit: 0, percent: 0 },
+              branches: { found: 0, hit: 0, percent: 0 },
+              // No `uncovered` field at all.
+            },
+            {
+              path: "src/b.ts",
+              lines: { found: 4, hit: 2, percent: 50 },
+              functions: { found: 0, hit: 0, percent: 0 },
+              branches: { found: 0, hit: 0, percent: 0 },
+              // Wrong-typed uncovered fields.
+              uncovered: { lines: "2", functions: null, branches: undefined },
+            },
+          ],
+        },
+      ],
+    });
+    const files = result?.runs[0]?.files ?? [];
+    expect(files).toHaveLength(2);
+    expect(files[0]?.uncovered).toEqual({
+      lines: 0,
+      functions: 0,
+      branches: 0,
+    });
+    expect(files[1]?.uncovered).toEqual({
+      lines: 0,
+      functions: 0,
+      branches: 0,
+    });
+  });
+
+  it("treats run.files as empty when it is not an array", () => {
+    const result = sanitizeHistory({
+      schemaVersion: 1,
+      runs: [
+        {
+          id: "abc",
+          timestamp: "2026-04-24T00:00:00.000Z",
+          totals: {
+            lines: { found: 10, hit: 5, percent: 50 },
+            functions: { found: 0, hit: 0, percent: 0 },
+            branches: { found: 0, hit: 0, percent: 0 },
+          },
+          files: "not-an-array",
+        },
+      ],
+    });
+    expect(result?.runs[0]?.files).toEqual([]);
   });
 });
 
@@ -406,26 +547,35 @@ describe("buildReport end-to-end", () => {
   let workspace: string;
   let originalCwd: string;
   let writeSpy: ReturnType<typeof vi.spyOn>;
+  let originalWebAssetsDir: string | undefined;
 
   beforeEach(async () => {
     workspace = await realpath(
       await mkdtemp(path.join(tmpdir(), "doublcov-build-")),
     );
     await cp(FIXTURE_DIR, workspace, { recursive: true });
+    await writeMinimalWebAssets(path.join(workspace, "web-assets"));
+    originalWebAssetsDir = process.env.DOUBLCOV_WEB_ASSETS_DIR;
+    process.env.DOUBLCOV_WEB_ASSETS_DIR = path.join(workspace, "web-assets");
     originalCwd = process.cwd();
     process.chdir(workspace);
-    writeSpy = vi
-      .spyOn(process.stdout, "write")
-      .mockImplementation(() => true);
+    writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
   });
 
   afterEach(async () => {
     writeSpy.mockRestore();
+    if (originalWebAssetsDir === undefined) {
+      delete process.env.DOUBLCOV_WEB_ASSETS_DIR;
+    } else {
+      process.env.DOUBLCOV_WEB_ASSETS_DIR = originalWebAssetsDir;
+    }
     process.chdir(originalCwd);
     await rm(workspace, { recursive: true, force: true });
   });
 
-  function baseOptions(overrides: Partial<Parameters<typeof buildReport>[0]> = {}) {
+  function baseOptions(
+    overrides: Partial<Parameters<typeof buildReport>[0]> = {},
+  ) {
     return {
       lcov: path.join(workspace, "lcov.info"),
       sources: ["src"],
@@ -446,10 +596,7 @@ describe("buildReport end-to-end", () => {
     expect(result.outDir).toBe(path.join(workspace, "coverage", "report"));
 
     const report = JSON.parse(
-      await readFile(
-        path.join(result.outDir, "data", "report.json"),
-        "utf8",
-      ),
+      await readFile(path.join(result.outDir, "data", "report.json"), "utf8"),
     );
     expect(report.files.length).toBeGreaterThan(0);
     expect(report.projectName).toBeTruthy();
@@ -476,10 +623,7 @@ describe("buildReport end-to-end", () => {
     );
     const result = await buildReport(baseOptions());
     const report = JSON.parse(
-      await readFile(
-        path.join(result.outDir, "data", "report.json"),
-        "utf8",
-      ),
+      await readFile(path.join(result.outDir, "data", "report.json"), "utf8"),
     );
     expect(report.projectName).toBe(path.basename(workspace));
   });
@@ -502,10 +646,7 @@ describe("buildReport end-to-end", () => {
       return;
     }
     const report = JSON.parse(
-      await readFile(
-        path.join(result.outDir, "data", "report.json"),
-        "utf8",
-      ),
+      await readFile(path.join(result.outDir, "data", "report.json"), "utf8"),
     );
     expect(report.projectName).toBe(path.basename(workspace));
   });
@@ -518,10 +659,7 @@ describe("buildReport end-to-end", () => {
     );
     const result = await buildReport(baseOptions());
     const report = JSON.parse(
-      await readFile(
-        path.join(result.outDir, "data", "report.json"),
-        "utf8",
-      ),
+      await readFile(path.join(result.outDir, "data", "report.json"), "utf8"),
     );
     expect(report.projectName).toBe(path.basename(workspace));
   });
@@ -535,10 +673,7 @@ describe("buildReport end-to-end", () => {
       }),
     );
     const report = JSON.parse(
-      await readFile(
-        path.join(result.outDir, "data", "report.json"),
-        "utf8",
-      ),
+      await readFile(path.join(result.outDir, "data", "report.json"), "utf8"),
     );
     const warnings: Array<{ severity?: string; message?: string }> =
       report.diagnostics ?? [];
@@ -589,12 +724,40 @@ describe("buildReport end-to-end", () => {
     const scriptCloses = (indexHtml.match(/<\/script>/g) ?? []).length;
     expect(scriptOpens).toBe(scriptCloses);
   });
-
 });
+
+async function writeMinimalWebAssets(root: string): Promise<void> {
+  await mkdir(path.join(root, "assets"), { recursive: true });
+  await writeFile(
+    path.join(root, "index.html"),
+    [
+      "<!doctype html>",
+      "<html>",
+      "<head>",
+      '<link rel="stylesheet" href="./assets/index.css">',
+      "</head>",
+      "<body>",
+      '<div id="app"></div>',
+      '<script type="module" src="./assets/index.js"></script>',
+      "</body>",
+      "</html>",
+    ].join("\n"),
+    "utf8",
+  );
+  await writeFile(path.join(root, "assets", "index.css"), ".app{}\n", "utf8");
+  await writeFile(
+    path.join(root, "assets", "index.js"),
+    'console.log("doublcov test asset");\n',
+    "utf8",
+  );
+}
 
 describe("escapeHtmlRawText", () => {
   it("neutralizes a stray </style> in inlined CSS", () => {
-    const escaped = escapeHtmlRawText(".x{}/*</style><script>alert(1)*/", "style");
+    const escaped = escapeHtmlRawText(
+      ".x{}/*</style><script>alert(1)*/",
+      "style",
+    );
     expect(escaped).not.toMatch(/<\/style/i);
     expect(escaped).toContain("<\\/style");
   });
@@ -609,5 +772,245 @@ describe("escapeHtmlRawText", () => {
 
   it("does not touch the other element name", () => {
     expect(escapeHtmlRawText("</style>", "script")).toBe("</style>");
+  });
+
+  it("escapes </script regardless of trailing character (space, tab, newline, EOF, >)", () => {
+    // The HTML parser closes a raw-text element on </script followed by any
+    // ASCII whitespace or '>'. We must escape all of those.
+    expect(escapeHtmlRawText("a</script ", "script")).not.toMatch(/<\/script/);
+    expect(escapeHtmlRawText("a</script\t", "script")).not.toMatch(/<\/script/);
+    expect(escapeHtmlRawText("a</script\n", "script")).not.toMatch(/<\/script/);
+    expect(escapeHtmlRawText("a</script>", "script")).not.toMatch(/<\/script/);
+    // End-of-string immediately after the prefix.
+    expect(escapeHtmlRawText("a</script", "script")).not.toMatch(/<\/script/);
+    // Even </scriptsomethingelse must be escaped (over-escape is safer).
+    expect(escapeHtmlRawText("a</scriptz", "script")).not.toMatch(/<\/script/);
+  });
+
+  it("escapes uppercase </STYLE> in inlined CSS", () => {
+    const escaped = escapeHtmlRawText("/* </STYLE> */", "style");
+    expect(escaped).not.toMatch(/<\/style/i);
+    expect(escaped).toContain("<\\/style");
+  });
+});
+
+describe("replaceLiteralOnce edge cases", () => {
+  it("only replaces the first occurrence when the needle appears multiple times", () => {
+    expect(replaceLiteralOnce("xx-xx-xx", "xx", "Y")).toBe("Y-xx-xx");
+  });
+
+  it("returns the original string when the needle is not found", () => {
+    expect(replaceLiteralOnce("hello", "world", "X")).toBe("hello");
+  });
+
+  it("preserves the input when the needle is empty rather than prepending", () => {
+    // Native String.prototype.replace with an empty needle replaces the
+    // zero-width match at index 0, prepending the replacement. That's a
+    // surprising footgun for an HTML rewriter, so the helper should treat
+    // an empty needle as a no-op.
+    expect(replaceLiteralOnce("hello", "", "X")).toBe("hello");
+  });
+});
+
+describe("inlineStylesheets", () => {
+  let workspace: string;
+
+  beforeEach(async () => {
+    workspace = await realpath(
+      await mkdtemp(path.join(tmpdir(), "doublcov-style-")),
+    );
+  });
+
+  afterEach(async () => {
+    await rm(workspace, { recursive: true, force: true });
+  });
+
+  it("strips link-tag attributes (crossorigin/integrity) by replacing the entire tag", async () => {
+    await mkdir(path.join(workspace, "assets"), { recursive: true });
+    await writeFile(
+      path.join(workspace, "assets", "x.css"),
+      ".a{color:red}",
+      "utf8",
+    );
+    const inlined = await inlineStylesheets(
+      [
+        "<head>",
+        '<link rel="stylesheet" crossorigin integrity="sha384-x" href="./assets/x.css">',
+        "</head>",
+      ].join("\n"),
+      workspace,
+    );
+    expect(inlined).not.toMatch(/<link\b/);
+    expect(inlined).not.toContain("crossorigin");
+    expect(inlined).not.toContain("integrity");
+    expect(inlined).toContain("<style>");
+    expect(inlined).toContain(".a{color:red}");
+  });
+
+  it("escapes uppercase </STYLE> sequences inside inlined CSS", async () => {
+    await mkdir(path.join(workspace, "assets"), { recursive: true });
+    // CSS that contains a literal </STYLE> sequence inside a comment.
+    await writeFile(
+      path.join(workspace, "assets", "x.css"),
+      "/* </STYLE> */\n.x{}",
+      "utf8",
+    );
+    const inlined = await inlineStylesheets(
+      '<link rel="stylesheet" href="./assets/x.css">',
+      workspace,
+    );
+    // The output should contain exactly one closing </style> (the one we
+    // emit ourselves around the inlined CSS); the embedded </STYLE> in the
+    // CSS body must have been escaped.
+    const closing = (inlined.match(/<\/style/gi) ?? []).length;
+    expect(closing).toBe(1);
+    expect(inlined).toContain("<\\/style");
+  });
+
+  it("skips link tags without an href attribute instead of throwing", async () => {
+    const html = '<link rel="stylesheet">';
+    const inlined = await inlineStylesheets(html, workspace);
+    expect(inlined).toBe(html);
+  });
+});
+
+describe("inlineModuleScript", () => {
+  const emptyReport: CoverageReport = {
+    schemaVersion: 1,
+    projectName: "x",
+    summary: {
+      lines: { found: 0, hit: 0, percent: 0 },
+      functions: { found: 0, hit: 0, percent: 0 },
+      branches: { found: 0, hit: 0, percent: 0 },
+    },
+    files: [],
+    history: { schemaVersion: 1, runs: [] },
+    uncoveredItems: [],
+    diagnostics: [],
+  } as unknown as CoverageReport;
+  const sourcePayloads: SourceFilePayload[] = [];
+  let workspace: string;
+
+  beforeEach(async () => {
+    workspace = await realpath(
+      await mkdtemp(path.join(tmpdir(), "doublcov-script-")),
+    );
+    await mkdir(path.join(workspace, "assets"), { recursive: true });
+    await writeFile(
+      path.join(workspace, "assets", "app.js"),
+      'console.log("hi");\n',
+      "utf8",
+    );
+  });
+
+  afterEach(async () => {
+    await rm(workspace, { recursive: true, force: true });
+  });
+
+  it("inlines the script even when src= comes before type=module", async () => {
+    const html = '<script src="./assets/app.js" type="module"></script>';
+    const inlined = await inlineModuleScript(
+      html,
+      workspace,
+      emptyReport,
+      sourcePayloads,
+    );
+    expect(inlined).not.toContain('src="./assets/app.js"');
+    expect(inlined).toContain('id="doublcov-report-data"');
+    expect(inlined).toContain('id="doublcov-source-data"');
+    expect(inlined).toContain('console.log("hi");');
+  });
+
+  it("inlines the script when type=module comes before src=", async () => {
+    const html =
+      '<script type="module" crossorigin src="./assets/app.js"></script>';
+    const inlined = await inlineModuleScript(
+      html,
+      workspace,
+      emptyReport,
+      sourcePayloads,
+    );
+    expect(inlined).not.toContain('src="./assets/app.js"');
+    expect(inlined).toContain('console.log("hi");');
+  });
+
+  it("returns the original HTML when no module script is present", async () => {
+    const html = '<script src="./assets/legacy.js"></script>';
+    const inlined = await inlineModuleScript(
+      html,
+      workspace,
+      emptyReport,
+      sourcePayloads,
+    );
+    expect(inlined).toBe(html);
+  });
+
+  it("returns the original HTML when the module script lacks a src", async () => {
+    const html = '<script type="module"></script>';
+    const inlined = await inlineModuleScript(
+      html,
+      workspace,
+      emptyReport,
+      sourcePayloads,
+    );
+    expect(inlined).toBe(html);
+  });
+});
+
+describe("makeIndexHtmlStandalone", () => {
+  let outDir: string;
+  const report: CoverageReport = {
+    schemaVersion: 1,
+    projectName: "x",
+    summary: {
+      lines: { found: 0, hit: 0, percent: 0 },
+      functions: { found: 0, hit: 0, percent: 0 },
+      branches: { found: 0, hit: 0, percent: 0 },
+    },
+    files: [],
+    history: { schemaVersion: 1, runs: [] },
+    uncoveredItems: [],
+    diagnostics: [],
+  } as unknown as CoverageReport;
+
+  beforeEach(async () => {
+    outDir = await realpath(
+      await mkdtemp(path.join(tmpdir(), "doublcov-standalone-")),
+    );
+    await mkdir(path.join(outDir, "assets"), { recursive: true });
+    await writeFile(
+      path.join(outDir, "assets", "x.css"),
+      ".body{color:red}",
+      "utf8",
+    );
+    await writeFile(
+      path.join(outDir, "assets", "x.js"),
+      'window.__doublcov="ok";',
+      "utf8",
+    );
+  });
+
+  afterEach(async () => {
+    await rm(outDir, { recursive: true, force: true });
+  });
+
+  it("inlines stylesheet and module script and rewrites index.html in place", async () => {
+    await writeFile(
+      path.join(outDir, "index.html"),
+      [
+        "<!doctype html>",
+        "<html><head>",
+        '<link rel="stylesheet" href="./assets/x.css">',
+        '<script type="module" src="./assets/x.js"></script>',
+        "</head><body></body></html>",
+      ].join("\n"),
+      "utf8",
+    );
+    await makeIndexHtmlStandalone(outDir, report, []);
+    const after = await readFile(path.join(outDir, "index.html"), "utf8");
+    expect(after).toContain(".body{color:red}");
+    expect(after).toContain('window.__doublcov="ok";');
+    expect(after).not.toMatch(/<link\b/);
+    expect(after).not.toMatch(/src=".\/assets\/x\.js"/);
   });
 });

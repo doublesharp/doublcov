@@ -388,6 +388,9 @@ async function resolveWebAssets(): Promise<string> {
   if (getSeaWebAssetKeys().length > 0) return "sea:web";
 
   const candidates = [
+    ...(process.env.DOUBLCOV_WEB_ASSETS_DIR
+      ? [path.resolve(process.env.DOUBLCOV_WEB_ASSETS_DIR)]
+      : []),
     path.resolve(currentDir, "web"),
     path.resolve(currentDir, "../../../apps/web/dist"),
   ];
@@ -438,7 +441,7 @@ async function copyWebAssets(webAssets: string, outDir: string): Promise<void> {
   );
 }
 
-async function makeIndexHtmlStandalone(
+export async function makeIndexHtmlStandalone(
   outDir: string,
   report: CoverageReport,
   sourcePayloads: SourceFilePayload[],
@@ -450,7 +453,7 @@ async function makeIndexHtmlStandalone(
   await fs.writeFile(indexPath, html, "utf8");
 }
 
-async function inlineStylesheets(
+export async function inlineStylesheets(
   html: string,
   outDir: string,
 ): Promise<string> {
@@ -472,19 +475,23 @@ async function inlineStylesheets(
   return nextHtml;
 }
 
-async function inlineModuleScript(
+export async function inlineModuleScript(
   html: string,
   outDir: string,
   report: CoverageReport,
   sourcePayloads: SourceFilePayload[],
 ): Promise<string> {
-  const match = html.match(
-    /<script\b[^>]*type="module"[^>]*src="([^"]+)"[^>]*><\/script>/,
-  );
-  if (!match?.[0] || !match[1]) return html;
+  // Match a <script ...></script> tag in either attribute order: vite happens
+  // to emit `type="module" ... src="..."`, but a future toolchain change
+  // (or a hand-edited index.html) might swap them.
+  const tagMatch = html.match(/<script\b[^>]*><\/script>/);
+  const tag = tagMatch?.[0];
+  if (!tag || !/\btype="module"/.test(tag)) return html;
+  const src = tag.match(/\bsrc="([^"]+)"/)?.[1];
+  if (!src) return html;
 
   const js = stripSourceMapComment(
-    await fs.readFile(resolveOutputAssetPath(outDir, match[1]), "utf8"),
+    await fs.readFile(resolveOutputAssetPath(outDir, src), "utf8"),
   );
   const embeddedData = [
     `<script type="application/json" id="doublcov-report-data">${escapeJsonForHtml(JSON.stringify(report))}</script>`,
@@ -492,7 +499,7 @@ async function inlineModuleScript(
   ].join("\n");
   return replaceLiteralOnce(
     html,
-    match[0],
+    tag,
     `${embeddedData}\n<script type="module">\n${escapeHtmlRawText(js, "script")}\n</script>`,
   );
 }
@@ -532,6 +539,10 @@ export function replaceLiteralOnce(
   search: string,
   replacement: string,
 ): string {
+  // Native String#replace with an empty needle prepends the replacement at the
+  // zero-width match at index 0. For a literal-rewrite helper that's a footgun:
+  // callers expect "needle not present means no-op". Treat empty needle as no-op.
+  if (search === "") return input;
   return input.replace(search, () => replacement);
 }
 
