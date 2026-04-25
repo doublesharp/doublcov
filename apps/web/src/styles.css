@@ -1,0 +1,237 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --bg: #f7f8fb;
+  --panel: #ffffff;
+  --panel-soft: #f1f4f8;
+  --text: #172033;
+  --muted: #5f6f86;
+  --border: #d9e0ea;
+  --accent: #0f766e;
+  --accent-strong: #0b5f59;
+  --covered: #dff6e7;
+  --partial: #fff1cb;
+  --uncovered: #ffe0e0;
+  --ignored: #e7ebf2;
+  --code-bg: #fbfcfe;
+  --syn-keyword: #075985;
+  --syn-type: #047857;
+  --syn-builtin: #6d28d9;
+  --syn-function: #0f766e;
+  --syn-string: #9a3412;
+  --syn-number: #b91c1c;
+  --syn-comment: #64748b;
+  --syn-literal: #be123c;
+  --syn-key: #1d4ed8;
+  --syn-operator: #475569;
+  --syn-punctuation: #64748b;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #101318;
+  --panel: #171c23;
+  --panel-soft: #202733;
+  --text: #edf2f7;
+  --muted: #a3b1c2;
+  --border: #303a49;
+  --accent: #2dd4bf;
+  --accent-strong: #5eead4;
+  --covered: #163d2a;
+  --partial: #4a3713;
+  --uncovered: #4b2023;
+  --ignored: #263142;
+  --code-bg: #11161d;
+  --syn-keyword: #93c5fd;
+  --syn-type: #5eead4;
+  --syn-builtin: #c4b5fd;
+  --syn-function: #86efac;
+  --syn-string: #fbbf24;
+  --syn-number: #fca5a5;
+  --syn-comment: #8da0b6;
+  --syn-literal: #fb7185;
+  --syn-key: #7dd3fc;
+  --syn-operator: #cbd5e1;
+  --syn-punctuation: #94a3b8;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.navigator-resize-handle {
+  display: block;
+  width: 100%;
+  height: 16px;
+  cursor: ns-resize;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-soft);
+}
+
+.navigator-resize-handle::before {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin: 5px auto 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 54%, transparent);
+}
+
+.navigator-resize-handle:hover::before,
+.resizing-navigator .navigator-resize-handle::before {
+  background: var(--accent);
+}
+
+.resizing-navigator {
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.code-line {
+  display: grid;
+  grid-template-columns: 64px 56px minmax(0, 1fr);
+  min-height: 24px;
+}
+
+.code-line pre {
+  margin: 0;
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.syn-keyword {
+  color: var(--syn-keyword);
+  font-weight: 600;
+}
+
+.syn-type {
+  color: var(--syn-type);
+}
+
+.syn-builtin {
+  color: var(--syn-builtin);
+}
+
+.syn-function {
+  color: var(--syn-function);
+}
+
+.syn-string {
+  color: var(--syn-string);
+}
+
+.syn-number {
+  color: var(--syn-number);
+}
+
+.syn-comment {
+  color: var(--syn-comment);
+  font-style: italic;
+}
+
+.syn-literal {
+  color: var(--syn-literal);
+  font-weight: 600;
+}
+
+.syn-key {
+  color: var(--syn-key);
+}
+
+.syn-operator {
+  color: var(--syn-operator);
+}
+
+.syn-punctuation {
+  color: var(--syn-punctuation);
+}
+
+.ignored-line {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--ignored) 84%, transparent),
+      color-mix(in srgb, var(--ignored) 84%, transparent) 8px,
+      color-mix(in srgb, var(--ignored) 58%, transparent) 8px,
+      color-mix(in srgb, var(--ignored) 58%, transparent) 16px
+    );
+  color: color-mix(in srgb, var(--text) 72%, var(--muted));
+}
+
+.ignored-line button,
+.ignored-line span {
+  color: var(--muted);
+}
+
+.selected-line {
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.selected-uncovered-section {
+  position: relative;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent 68%),
+    var(--uncovered);
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    inset -1px 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.selected-uncovered-section::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.selected-uncovered-section-start {
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    inset 0 2px 0 var(--accent),
+    inset -1px 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.selected-uncovered-section-end {
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    inset 0 -2px 0 var(--accent),
+    inset -1px 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.selected-uncovered-section-start.selected-uncovered-section-end {
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    inset 0 0 0 2px var(--accent);
+}

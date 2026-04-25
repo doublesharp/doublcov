@@ -1,0 +1,28 @@
+{
+  "name": "doublcov-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.25.0",
+  "scripts": {
+    "build": "pnpm -r --sort run build && pnpm --filter @0xdoublesharp/doublcov run bundle:web",
+    "binary": "node scripts/build-binary.mjs",
+    "build:binary": "pnpm run build && pnpm run binary",
+    "clean": "pnpm -r --parallel run clean",
+    "smoke:package": "node scripts/smoke-npm-package.mjs",
+    "check:package": "node scripts/check-package-contents.mjs",
+    "lint:package": "pnpm --filter @0xdoublesharp/doublcov exec publint --strict",
+    "test": "pnpm -r --if-present run test",
+    "test:e2e": "pnpm run build && playwright test",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
+    "verify:publish": "pnpm run build && pnpm run typecheck && pnpm run typecheck:scripts && pnpm run test && pnpm run lint:package && pnpm run check:package && pnpm run smoke:package",
+    "dev": "pnpm --filter @0xdoublesharp/doublcov-web run dev"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "latest",
+    "postject": "1.0.0-alpha.6",
+    "typescript": "6.0.3",
+    "vitest": "latest"
+  }
+}

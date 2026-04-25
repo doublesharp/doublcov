@@ -1,0 +1,62 @@
+{
+  "defaultTheme": "fixture-dark",
+  "themes": [
+    {
+      "id": "fixture-dark",
+      "label": "Fixture Dark",
+      "mode": "dark",
+      "tokens": {
+        "bg": "#0b1020",
+        "panel": "#111827",
+        "panel-soft": "#1f2937",
+        "text": "#f9fafb",
+        "muted": "#cbd5e1",
+        "border": "#334155",
+        "accent": "#38bdf8",
+        "accent-strong": "#7dd3fc",
+        "covered": "#123524",
+        "partial": "#4c3b12",
+        "uncovered": "#4a1f2a",
+        "ignored": "#283548",
+        "code-bg": "#090e1a"
+      }
+    }
+  ],
+  "plugins": [
+    {
+      "id": "example-ci",
+      "label": "Example CI",
+      "hooks": [
+        {
+          "id": "example-run",
+          "hook": "report:header",
+          "label": "CI run",
+          "href": "https://example.test/ci/run/123",
+          "priority": 10
+        },
+        {
+          "id": "example-gate",
+          "hook": "report:summary",
+          "label": "Gate",
+          "content": "passing",
+          "priority": 20
+        },
+        {
+          "id": "example-typescript-owner",
+          "hook": "file:toolbar",
+          "label": "Owner: frontend",
+          "language": "typescript",
+          "priority": 30
+        },
+        {
+          "id": "example-panel",
+          "hook": "sidebar:panel",
+          "label": "Plugin Note",
+          "content": "This panel is contributed by the example customization config.",
+          "priority": 40
+        }
+      ]
+    }
+  ]
+}
+

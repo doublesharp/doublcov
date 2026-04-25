@@ -1,0 +1,173 @@
+# Doublcov
+
+Find what's missing.
+
+Static LCOV coverage reports for Solidity and general-purpose projects.
+
+<p align="center">
+  <img src="docs/doublcov.png" alt="Doublcov" width="160">
+</p>
+
+Doublcov helps you find what's missing by turning LCOV into a self-contained static web report with source browsing, uncovered navigation, history, diagnostics, syntax highlighting, themes, and declarative UI hooks. It can either build from an existing `lcov.info` file or run one of the built-in coverage builders first.
+
+## Install
+
+For Node-based projects:
+
+```bash
+npm install --save-dev @0xdoublesharp/doublcov
+```
+
+or:
+
+```bash
+pnpm add -D @0xdoublesharp/doublcov
+```
+
+Run without installing:
+
+```bash
+npx @0xdoublesharp/doublcov build
+```
+
+For non-Node projects, use the GitHub Action, standalone binaries, or Docker image from tagged releases. See [Releasing](docs/RELEASING.md).
+
+## Quick Start
+
+If your project already emits LCOV:
+
+```bash
+doublcov build \
+  --lcov lcov.info \
+  --sources src \
+  --out coverage/report
+```
+
+Preview the static report:
+
+```bash
+doublcov open coverage/report
+```
+
+Defaults:
+
+- LCOV: `lcov.info`
+- sources: `src`
+- output: `coverage/report`
+- history: `.doublcov/history.json`
+- optional config: `doublcov.config.json` when present
+
+## Built-In Builders
+
+Builder commands run a coverage tool and pass the generated LCOV into the same report builder.
+
+```bash
+doublcov forge -- --exclude-tests --ir-minimum
+doublcov hardhat
+doublcov vite
+doublcov jest
+doublcov v8
+doublcov pytest
+doublcov cargo-llvm-cov
+doublcov cargo-tarpaulin
+doublcov lcov-capture
+```
+
+Supported builder commands:
+
+| Command | Tool it runs | Typical projects |
+| --- | --- | --- |
+| `foundry`, `forge` | `forge coverage --report lcov` | Solidity / Foundry |
+| `hardhat` | `npx hardhat coverage` | Solidity / Hardhat |
+| `vite`, `vitest` | `npx vitest run --coverage --coverage.reporter=lcov` | Vite / Vitest |
+| `jest` | `npx jest --coverage --coverageReporters=lcov` | Jest |
+| `c8`, `v8`, `node`, `node-test` | `npx c8 --reporter=lcov node --test` | Node test runner / V8 coverage |
+| `pytest`, `python`, `coverage.py` | `python -m pytest --cov --cov-report=lcov:<path>` | Python / pytest-cov |
+| `cargo-llvm-cov`, `llvm-cov`, `rust` | `cargo llvm-cov --lcov --output-path <path>` | Rust |
+| `cargo-tarpaulin`, `tarpaulin` | `cargo tarpaulin --out Lcov` | Rust |
+| `lcov-capture`, `lcov`, `gcov`, `c`, `cpp` | `lcov --capture` | C / C++ gcov data |
+
+Builder arguments after `--` are passed to the underlying tool:
+
+```bash
+doublcov forge -- --match-path test/Foo.t.sol
+doublcov cargo-llvm-cov -- --workspace
+```
+
+Builder integrations are built into the CLI. Adding a new builder requires a code change in this repository; see [Extending Doublcov](docs/EXTENDING.md).
+
+## Usage Guides
+
+Per-framework guides live in [docs/usage](docs/usage/README.md). Each one covers prerequisites, install, quick start, argument forwarding, package scripts, manual LCOV use, a CI snippet, and known gotchas.
+
+- Solidity: [Foundry](docs/usage/foundry.md), [Hardhat](docs/usage/hardhat.md)
+- JavaScript and TypeScript: [Jest](docs/usage/jest.md), [Vitest](docs/usage/vitest.md), [Node test runner with c8](docs/usage/c8.md)
+- Python: [pytest](docs/usage/pytest.md)
+- Rust: [cargo-llvm-cov](docs/usage/cargo-llvm-cov.md), [cargo-tarpaulin](docs/usage/cargo-tarpaulin.md)
+- C and C++: [lcov-capture](docs/usage/lcov-capture.md)
+- Any other tool: [Generic LCOV](docs/usage/generic-lcov.md)
+
+## Languages
+
+The report core is generic LCOV. Built-in source detection and syntax highlighting cover Solidity, C, C++, TypeScript, JavaScript, Python, Rust, Go, Java, C#, Kotlin, PHP, Ruby, Swift, Scala, Dart, Lua, R, shell, CSS, HTML/XML, Vue, JSON, YAML, TOML, and Markdown.
+
+Unknown source files can still be included with `--extensions` and render as plain text.
+
+## Configuration
+
+Doublcov automatically reads `doublcov.config.json` from the current working directory when it exists. Use `--customization <path>` to choose another file; explicit paths must exist.
+
+Configuration supports:
+
+- `defaultTheme`
+- custom `themes`
+- declarative hooks for `report:header`, `report:summary`, `file:toolbar`, and `sidebar:panel`
+
+See [Configuration](docs/CONFIGURATION.md).
+
+## Diagnostics
+
+Diagnostics are optional parser-tagged files layered on top of LCOV. Foundry debug and bytecode diagnostics are built in:
+
+```bash
+doublcov build \
+  --lcov lcov.info \
+  --diagnostic foundry-debug:coverage.debug \
+  --diagnostic foundry-bytecode:coverage.bytecode
+```
+
+Foundry aliases:
+
+```bash
+doublcov forge --debug coverage.debug --bytecode coverage.bytecode
+```
+
+## CI And Hosting
+
+Reports are static directories. Upload `coverage/report` to CI artifacts, GitHub Pages, GitLab Pages, Cloudflare Pages, Netlify, Vercel, object storage, or any static file server.
+
+GitHub Actions example:
+
+```yaml
+- uses: doublesharp/doublcov@<release-tag>
+  with:
+    version: <release-tag>
+    command: build
+    args: --lcov coverage/lcov.info --sources src --out coverage/report
+```
+
+Use the npm package for Node projects, the GitHub Action for language-neutral CI, standalone binaries for local non-Node use, and Docker when your CI standardizes on containers. See [CI And Hosting](docs/CI.md) and [Releasing](docs/RELEASING.md).
+
+## Development
+
+```bash
+pnpm install
+pnpm run verify:publish
+```
+
+Build a local standalone binary:
+
+```bash
+pnpm run build:binary
+./packages/cli/dist/bin/doublcov-macos-arm64 --help
+```

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "tsBuildInfoFile": "./cli.tsbuildinfo",
+    "types": ["node"]
+  },
+  "references": [
+    {
+      "path": "../coverage-core"
+    }
+  ],
+  "include": ["src"]
+}

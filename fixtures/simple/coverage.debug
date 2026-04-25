@@ -1,0 +1,2 @@
+src/Counter.sol:10: uncovered else branch in Counter.setNumber
+src/Counter.sol:14: function increment was not covered

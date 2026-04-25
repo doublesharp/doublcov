@@ -1,0 +1,67 @@
+{
+  "name": "@0xdoublesharp/doublcov",
+  "version": "0.1.0",
+  "description": "Find what's missing with static LCOV coverage reports",
+  "license": "MIT",
+  "author": "0xdoublesharp",
+  "homepage": "https://github.com/doublesharp/doublcov#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/doublesharp/doublcov.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/doublesharp/doublcov/issues"
+  },
+  "keywords": [
+    "doublcov",
+    "foundry",
+    "forge",
+    "hardhat",
+    "vite",
+    "solidity",
+    "typescript",
+    "javascript",
+    "python",
+    "rust",
+    "c",
+    "cpp",
+    "coverage",
+    "lcov",
+    "static-report"
+  ],
+  "type": "module",
+  "bin": {
+    "doublcov": "./dist/index.js"
+  },
+  "files": [
+    "dist/*.d.ts",
+    "dist/*.d.ts.map",
+    "dist/*.js",
+    "dist/*.js.map",
+    "dist/web",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json --emitDeclarationOnly && node ../../scripts/build-cli.mjs",
+    "bundle:web": "node ../../scripts/copy-web-assets.mjs",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "prepublishOnly": "pnpm -w run verify:publish",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "devDependencies": {
+    "@0xdoublesharp/doublcov-core": "workspace:*",
+    "esbuild": "latest",
+    "publint": "^0.3.18",
+    "vitest": "latest"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

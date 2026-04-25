@@ -1,0 +1,25 @@
+{
+  "name": "@0xdoublesharp/doublcov-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vue-tsc -b && vite build",
+    "clean": "rm -rf dist dist-types *.tsbuildinfo",
+    "dev": "vite --host 0.0.0.0",
+    "test": "vitest run",
+    "typecheck": "vue-tsc -b"
+  },
+  "dependencies": {
+    "@0xdoublesharp/doublcov-core": "workspace:*",
+    "@tailwindcss/vite": "4.2.4",
+    "tailwindcss": "4.2.4",
+    "@vitejs/plugin-vue": "6.0.6",
+    "shiki": "^4.0.2",
+    "vite": "8.0.10",
+    "vue": "3.5.33"
+  },
+  "devDependencies": {
+    "vue-tsc": "latest"
+  }
+}

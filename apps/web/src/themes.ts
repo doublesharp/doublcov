@@ -1,0 +1,112 @@
+import { COVERAGE_THEME_TOKENS, type CoverageTheme, type CoverageThemeMode } from "@0xdoublesharp/doublcov-core";
+
+export const themeTokens = COVERAGE_THEME_TOKENS;
+
+export const builtInThemes: CoverageTheme[] = [
+  {
+    id: "light",
+    label: "Light",
+    mode: "light",
+    tokens: {
+      bg: "#f7f8fb",
+      panel: "#ffffff",
+      "panel-soft": "#f1f4f8",
+      text: "#172033",
+      muted: "#5f6f86",
+      border: "#d9e0ea",
+      accent: "#0f766e",
+      "accent-strong": "#0b5f59",
+      covered: "#dff6e7",
+      partial: "#fff1cb",
+      uncovered: "#ffe0e0",
+      ignored: "#e7ebf2",
+      "code-bg": "#fbfcfe",
+      "syn-keyword": "#075985",
+      "syn-type": "#047857",
+      "syn-builtin": "#6d28d9",
+      "syn-function": "#0f766e",
+      "syn-string": "#9a3412",
+      "syn-number": "#b91c1c",
+      "syn-comment": "#64748b",
+      "syn-literal": "#be123c",
+      "syn-key": "#1d4ed8",
+      "syn-operator": "#475569",
+      "syn-punctuation": "#64748b"
+    }
+  },
+  {
+    id: "dark",
+    label: "Dark",
+    mode: "dark",
+    tokens: {
+      bg: "#101318",
+      panel: "#171c23",
+      "panel-soft": "#202733",
+      text: "#edf2f7",
+      muted: "#a3b1c2",
+      border: "#303a49",
+      accent: "#2dd4bf",
+      "accent-strong": "#5eead4",
+      covered: "#163d2a",
+      partial: "#4a3713",
+      uncovered: "#4b2023",
+      ignored: "#263142",
+      "code-bg": "#11161d",
+      "syn-keyword": "#93c5fd",
+      "syn-type": "#5eead4",
+      "syn-builtin": "#c4b5fd",
+      "syn-function": "#86efac",
+      "syn-string": "#fbbf24",
+      "syn-number": "#fca5a5",
+      "syn-comment": "#8da0b6",
+      "syn-literal": "#fb7185",
+      "syn-key": "#7dd3fc",
+      "syn-operator": "#cbd5e1",
+      "syn-punctuation": "#94a3b8"
+    }
+  },
+  {
+    id: "contrast",
+    label: "High Contrast",
+    mode: "dark",
+    tokens: {
+      bg: "#050505",
+      panel: "#101010",
+      "panel-soft": "#1b1b1b",
+      text: "#ffffff",
+      muted: "#d4d4d4",
+      border: "#737373",
+      accent: "#facc15",
+      "accent-strong": "#fde047",
+      covered: "#064e3b",
+      partial: "#713f12",
+      uncovered: "#7f1d1d",
+      ignored: "#262626",
+      "code-bg": "#000000"
+    }
+  },
+  {
+    id: "paper",
+    label: "Paper",
+    mode: "light",
+    tokens: {
+      bg: "#f5f5f0",
+      panel: "#fffffb",
+      "panel-soft": "#ecece4",
+      text: "#1f2933",
+      muted: "#5b6472",
+      border: "#d3d0c4",
+      accent: "#2563eb",
+      "accent-strong": "#1d4ed8",
+      covered: "#d8f3dc",
+      partial: "#fdecc8",
+      uncovered: "#f8d7da",
+      ignored: "#e6e3da",
+      "code-bg": "#fffefa"
+    }
+  }
+];
+
+export function themeMode(theme: CoverageTheme | undefined): CoverageThemeMode {
+  return theme?.mode ?? "dark";
+}
