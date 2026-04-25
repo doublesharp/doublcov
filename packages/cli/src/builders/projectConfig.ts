@@ -271,8 +271,9 @@ async function firstExisting(
 function parseSimpleToml(text: string): Map<string, Record<string, unknown>> {
   const sections = new Map<string, Record<string, unknown>>([["", {}]]);
   let current = sections.get("") ?? {};
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/#.*/, "").trim();
+  const rawLines = text.split(/\r?\n/);
+  for (let index = 0; index < rawLines.length; index += 1) {
+    const line = stripTomlComment(rawLines[index] ?? "").trim();
     if (!line) continue;
     const section = line.match(/^\[([^\]]+)\]$/);
     if (section?.[1]) {
@@ -282,9 +283,53 @@ function parseSimpleToml(text: string): Map<string, Record<string, unknown>> {
     }
     const assignment = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
     if (!assignment?.[1] || !assignment[2]) continue;
-    current[assignment[1]] = parseSimpleValue(assignment[2]);
+    let valueText = assignment[2];
+    // If this is the start of a multi-line array, accumulate until the closing
+    // bracket so parseSimpleValue can split entries across lines.
+    if (valueText.trimStart().startsWith("[") && !hasMatchingClosingBracket(valueText)) {
+      const collected = [valueText];
+      while (index + 1 < rawLines.length) {
+        index += 1;
+        const next = stripTomlComment(rawLines[index] ?? "");
+        collected.push(next);
+        if (next.includes("]")) break;
+      }
+      valueText = collected.join(" ");
+    }
+    current[assignment[1]] = parseSimpleValue(valueText);
   }
   return sections;
+}
+
+function stripTomlComment(line: string): string {
+  let inSingle = false;
+  let inDouble = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (char === '"' && !inSingle) inDouble = !inDouble;
+    else if (char === "'" && !inDouble) inSingle = !inSingle;
+    else if (char === "#" && !inSingle && !inDouble) return line.slice(0, index);
+  }
+  return line;
+}
+
+function hasMatchingClosingBracket(value: string): boolean {
+  let depth = 0;
+  let inSingle = false;
+  let inDouble = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === '"' && !inSingle) inDouble = !inDouble;
+    else if (char === "'" && !inDouble) inSingle = !inSingle;
+    else if (!inSingle && !inDouble) {
+      if (char === "[") depth += 1;
+      else if (char === "]") {
+        depth -= 1;
+        if (depth === 0) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function parseSimpleValue(value: string): unknown {
@@ -322,7 +367,9 @@ function parseSimpleObjectDefaults(text: string): BuilderProjectDefaults {
 }
 
 function extractObjectLiteral(text: string, key: string): string | undefined {
-  const match = new RegExp(`${key}\\s*:\\s*\\{`, "m").exec(text);
+  const match = new RegExp(`(?<![A-Za-z0-9_$])${key}\\s*:\\s*\\{`, "m").exec(
+    text,
+  );
   if (!match) return undefined;
   let depth = 0;
   for (
@@ -346,9 +393,10 @@ function matchObjectString(
   const haystack = objectKey
     ? (extractObjectLiteral(text, objectKey) ?? "")
     : text;
-  const match = new RegExp(`${property}\\s*[:=]\\s*["']([^"']+)["']`, "m").exec(
-    haystack,
-  );
+  const match = new RegExp(
+    `(?<![A-Za-z0-9_$])${property}\\s*[:=]\\s*["']([^"']+)["']`,
+    "m",
+  ).exec(haystack);
   return match?.[1];
 }
 
@@ -356,9 +404,10 @@ function matchObjectArray(
   text: string,
   property: string,
 ): string[] | undefined {
-  const match = new RegExp(`${property}\\s*[:=]\\s*\\[([^\\]]+)\\]`, "m").exec(
-    text,
-  );
+  const match = new RegExp(
+    `(?<![A-Za-z0-9_$])${property}\\s*[:=]\\s*\\[([^\\]]+)\\]`,
+    "m",
+  ).exec(text);
   if (!match?.[1]) return undefined;
   return match[1]
     .split(",")
