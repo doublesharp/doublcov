@@ -7,11 +7,7 @@ import type { Socket } from "node:net";
 import { pathToFileURL } from "node:url";
 import { DEFAULT_SERVE_TIMEOUT_MS, type ReportMode } from "./args.js";
 import { injectServerLeasePrompt } from "./serverClient.js";
-import {
-  contentType,
-  formatDuration,
-  isInsideRoot,
-} from "./serverHelpers.js";
+import { contentType, formatDuration, isInsideRoot } from "./serverHelpers.js";
 
 export type BrowserOpenCommand = { command: string; args: string[] };
 
@@ -115,7 +111,7 @@ export async function serveReport(
   await waitForShutdown(server, sockets, state);
 }
 
-async function detectReportMode(indexPath: string): Promise<ReportMode> {
+export async function detectReportMode(indexPath: string): Promise<ReportMode> {
   const html = await fs.readFile(indexPath, "utf8");
   return html.includes('id="doublcov-report-data"') ? "standalone" : "static";
 }
@@ -278,8 +274,11 @@ function waitForShutdown(
   });
 }
 
-function launchBrowser(target: string): void {
-  const opener = browserOpenCommand(target);
+export function launchBrowser(
+  target: string,
+  opener: BrowserOpenCommand = browserOpenCommand(target),
+): void {
+  if (process.env.DOUBLCOV_DISABLE_BROWSER_OPEN === "1") return;
   const child = spawn(opener.command, opener.args, {
     detached: true,
     stdio: "ignore",
