@@ -1,6 +1,6 @@
 {
   "name": "@0xdoublesharp/doublcov-core",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Generic LCOV parsing, language registry, and coverage report model",
   "type": "module",

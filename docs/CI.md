@@ -42,7 +42,7 @@ For projects in any language, the official action downloads the release binary, 
 ```
 
 Use the moving major action ref for compatible action updates. Omit `version`
-to download the latest GitHub Release binary, or set `version: v0.3.1` to pin
+to download the latest GitHub Release binary, or set `version: v0.3.2` to pin
 the downloaded CLI binary for reproducible CI.
 
 To install `doublcov` into `PATH` and run multiple commands:
@@ -50,7 +50,7 @@ To install `doublcov` into `PATH` and run multiple commands:
 ```yaml
 - uses: doublesharp/doublcov@v0
   with:
-    version: v0.3.1
+    version: v0.3.2
     install-only: "true"
 
 - run: doublcov build --lcov coverage/lcov.info --sources src --out coverage/report --no-open

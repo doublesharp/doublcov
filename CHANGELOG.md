@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+Fixes CI coverage generation from fresh checkouts by building the core package before workspace LCOV tests consume its package exports.
+
 ## 0.3.1
 
 Fixes GitHub Pages coverage dogfooding and improves generated report readability.

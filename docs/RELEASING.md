@@ -44,7 +44,7 @@ Use the action `version` input to control which Doublcov binary the action downl
 ```yaml
 - uses: doublesharp/doublcov@v0
   with:
-    version: v0.3.1
+    version: v0.3.2
 ```
 
 Omit `version` to download the latest GitHub Release binary. Pin `version` in reproducible CI examples; omit it in quick-start examples where following the latest release is acceptable.
