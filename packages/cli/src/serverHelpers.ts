@@ -22,6 +22,7 @@ export function contentType(filePath: string): string {
 }
 
 export function formatDuration(ms: number): string {
+  if (ms === 0) return "0ms";
   if (ms % (60 * 60 * 1000) === 0) return `${ms / (60 * 60 * 1000)}h`;
   if (ms % (60 * 1000) === 0) return `${ms / (60 * 1000)}m`;
   if (ms % 1000 === 0) return `${ms / 1000}s`;
