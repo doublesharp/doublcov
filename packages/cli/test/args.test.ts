@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCommand } from "../src/args.js";
+import { helpText, parseCommand } from "../src/args.js";
 
 describe("parseCommand", () => {
   it("uses defaults for common build paths", () => {
@@ -340,5 +340,169 @@ describe("parseCommand", () => {
     expect(parseCommand(["forge", "--port", "65535"])).toMatchObject({
       options: { port: 65535 },
     });
+  });
+
+  it("rejects an empty --port value (was silently parsed as 0)", () => {
+    // Bug: Number("") === 0 and Number.isInteger(0) is true, so previously
+    // `--port ""` was accepted as port 0 instead of reported as invalid.
+    expect(() => parseCommand(["forge", "--port=", "--", "x"])).toThrow(
+      /Invalid --port/,
+    );
+  });
+
+  it("rejects whitespace-only --port", () => {
+    expect(() => parseCommand(["forge", "--port=   "])).toThrow(
+      /Invalid --port/,
+    );
+  });
+
+  it("rejects --port given as hex/exponent (non-decimal)", () => {
+    // Number("0x10") === 16 and Number("1e2") === 100 — both Number.isInteger.
+    // We require strictly decimal-digit input.
+    expect(() => parseCommand(["forge", "--port=0x10"])).toThrow(
+      /Invalid --port/,
+    );
+    expect(() => parseCommand(["forge", "--port=1e2"])).toThrow(
+      /Invalid --port/,
+    );
+  });
+
+  it("rejects malformed --timeout values", () => {
+    expect(() => parseCommand(["serve", "--timeout", "5x"])).toThrow(
+      /Invalid --timeout/,
+    );
+    expect(() => parseCommand(["serve", "--timeout", "abc"])).toThrow(
+      /Invalid --timeout/,
+    );
+    expect(() => parseCommand(["serve", "--timeout", "-5m"])).toThrow(
+      /Invalid --timeout/,
+    );
+    expect(() => parseCommand(["serve", "--timeout", ""])).toThrow(
+      /Invalid --timeout/,
+    );
+    expect(() => parseCommand(["serve", "--timeout", "1.5h"])).toThrow(
+      /Invalid --timeout/,
+    );
+  });
+
+  it("converts valid --timeout durations correctly", () => {
+    expect(parseCommand(["serve", "--timeout", "0"])).toMatchObject({
+      timeoutMs: 0,
+    });
+    expect(parseCommand(["serve", "--timeout", "500ms"])).toMatchObject({
+      timeoutMs: 500,
+    });
+    expect(parseCommand(["serve", "--timeout", "30s"])).toMatchObject({
+      timeoutMs: 30 * 1000,
+    });
+    expect(parseCommand(["serve", "--timeout", "2h"])).toMatchObject({
+      timeoutMs: 2 * 60 * 60 * 1000,
+    });
+  });
+
+  it("rejects malformed --diagnostic inputs", () => {
+    // Missing colon entirely.
+    expect(() =>
+      parseCommand(["build", "--diagnostic", "no-colon-here"]),
+    ).toThrow(/Invalid diagnostic input/);
+    // Leading colon (empty parser).
+    expect(() => parseCommand(["build", "--diagnostic", ":path"])).toThrow(
+      /Invalid diagnostic input/,
+    );
+    // Trailing colon (empty path).
+    expect(() => parseCommand(["build", "--diagnostic", "parser:"])).toThrow(
+      /Invalid diagnostic input/,
+    );
+    // Just a colon.
+    expect(() => parseCommand(["build", "--diagnostic", ":"])).toThrow(
+      /Invalid diagnostic input/,
+    );
+  });
+
+  it("preserves colons in the diagnostic path portion", () => {
+    expect(
+      parseCommand(["build", "--diagnostic", "custom:C:/path/to/file"]),
+    ).toMatchObject({
+      options: {
+        diagnostics: [{ parser: "custom", path: "C:/path/to/file" }],
+      },
+    });
+  });
+
+  it("supports the --diagnostic=parser:path inline form", () => {
+    expect(
+      parseCommand(["build", "--diagnostic=custom:cov.log"]),
+    ).toMatchObject({
+      options: {
+        diagnostics: [{ parser: "custom", path: "cov.log" }],
+      },
+    });
+  });
+
+  it("rejects --mode help-style flags as a whole-CLI help", () => {
+    expect(parseCommand(["build", "--help", "--mode", "static"])).toEqual({
+      name: "help",
+    });
+  });
+
+  it("filters empty entries from comma-separated lists", () => {
+    expect(
+      parseCommand(["build", "--sources", ",,,a,,b,,,"]),
+    ).toMatchObject({
+      options: { sources: ["a", "b"] },
+    });
+    expect(
+      parseCommand(["build", "--extensions", ", .ts , , .tsx , "]),
+    ).toMatchObject({
+      options: { sourceExtensions: [".ts", ".tsx"] },
+    });
+  });
+
+  it("rejects an --open value that is not true or false", () => {
+    expect(() => parseCommand(["build", "--open=maybe"])).toThrow(
+      /Invalid --open/,
+    );
+  });
+
+  it("does not allow --foo to consume a following CLI flag as its value", () => {
+    // Bug probe: we expect parseFlags to NOT swallow `--bar` as the value
+    // of `--foo`. Here `--port` should remain unset (default 0) instead of
+    // being assigned to "--unknown-flag", which would produce an Invalid
+    // --port error.
+    expect(
+      parseCommand(["forge", "--port", "--unknown-flag"]),
+    ).toMatchObject({
+      options: { port: 0 },
+    });
+  });
+
+  it("throws on missing value for a repeated --diagnostic flag", () => {
+    expect(() =>
+      parseCommand(["build", "--diagnostic", "--lcov", "lcov.info"]),
+    ).toThrow(/Missing value for --diagnostic/);
+  });
+
+  it("rejects unknown subcommands with a helpful message", () => {
+    expect(() => parseCommand(["definitely-not-a-builder"])).toThrow(
+      /Unknown command "definitely-not-a-builder"/,
+    );
+  });
+
+  it("treats no args as help", () => {
+    expect(parseCommand([])).toEqual({ name: "help" });
+  });
+
+  it("accepts -h as a top-level help flag", () => {
+    expect(parseCommand(["-h"])).toEqual({ name: "help" });
+  });
+
+  it("returns helpText() without throwing and includes key sections", () => {
+    const text = helpText();
+    expect(typeof text).toBe("string");
+    expect(text).toMatch(/Doublcov/);
+    expect(text).toMatch(/Usage:/);
+    expect(text).toMatch(/Builder options:/);
+    expect(text).toMatch(/Build options:/);
+    expect(text).toMatch(/Open options:/);
   });
 });

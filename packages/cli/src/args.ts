@@ -289,7 +289,13 @@ function parseTimeout(value: string | undefined): number {
 function parsePort(value: string | undefined): number {
   if (value === undefined) return DEFAULT_PORT;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) {
+  if (
+    value.trim() === "" ||
+    !/^\d+$/.test(value.trim()) ||
+    !Number.isInteger(parsed) ||
+    parsed < 0 ||
+    parsed > 65535
+  ) {
     throw new Error(
       `Invalid --port "${value}". Expected an integer between 0 and 65535.`,
     );

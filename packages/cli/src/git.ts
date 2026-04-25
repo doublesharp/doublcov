@@ -7,7 +7,10 @@ export interface GitMetadata {
 
 export function readGitMetadata(cwd = process.cwd()): GitMetadata {
   const commit = runGit(["rev-parse", "HEAD"], cwd);
-  const branch = runGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+  const branchRaw = runGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+  // In detached HEAD state, rev-parse --abbrev-ref HEAD returns "HEAD",
+  // which is not a meaningful branch name.
+  const branch = branchRaw === "HEAD" ? undefined : branchRaw;
   return {
     ...(commit ? { commit } : {}),
     ...(branch ? { branch } : {}),

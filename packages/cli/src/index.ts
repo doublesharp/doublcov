@@ -1,11 +1,14 @@
 #!/usr/bin/env node
+import { fileURLToPath } from "node:url";
 import { parseCommand, helpText } from "./args.js";
 import { buildReport } from "./build.js";
 import { runCoverageBuilder } from "./builders/run.js";
 import { openReport, serveReport } from "./server.js";
 
-async function main(): Promise<void> {
-  const command = parseCommand(process.argv.slice(2));
+export async function main(
+  argv: string[] = process.argv.slice(2),
+): Promise<void> {
+  const command = parseCommand(argv);
   if (command.name === "help") {
     process.stdout.write(helpText());
     return;
@@ -38,9 +41,28 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch((error: unknown) => {
-  process.stderr.write(
-    `${error instanceof Error ? error.message : String(error)}\n`,
-  );
-  process.exitCode = 1;
-});
+export async function run(
+  argv: string[] = process.argv.slice(2),
+): Promise<void> {
+  try {
+    await main(argv);
+  } catch (error: unknown) {
+    process.stderr.write(
+      `${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exitCode = 1;
+  }
+}
+
+function isDirectExecution(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    return process.argv[1] === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectExecution()) {
+  await run();
+}
