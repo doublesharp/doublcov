@@ -5,6 +5,7 @@ import type {
 } from "@0xdoublesharp/doublcov-core";
 import {
   cp,
+  mkdir,
   mkdtemp,
   readFile,
   realpath,
@@ -31,7 +32,6 @@ import {
   sanitizeCustomization,
   sanitizeHistory,
 } from "../src/build.js";
-import { mkdir } from "node:fs/promises";
 
 const FIXTURE_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
