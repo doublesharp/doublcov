@@ -56,6 +56,7 @@
   },
   "devDependencies": {
     "@0xdoublesharp/doublcov-core": "workspace:*",
+    "@vitest/coverage-v8": "^4.1.5",
     "esbuild": "latest",
     "publint": "^0.3.18",
     "vitest": "latest"
