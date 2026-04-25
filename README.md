@@ -1,14 +1,30 @@
-# Doublcov
+<div align="center">
+  <img src="docs/doublcov.png" alt="Doublcov report mark" width="132">
+  <h1>Doublcov</h1>
+  <p><strong>Find what's missing in LCOV coverage.</strong></p>
+  <p>
+    Static, self-contained coverage reports with source browsing, uncovered navigation,
+    history, diagnostics, syntax highlighting, themes, and declarative UI hooks.
+  </p>
+  <p>
+    <a href="https://www.npmjs.com/package/@0xdoublesharp/doublcov"><img alt="npm" src="https://img.shields.io/npm/v/@0xdoublesharp/doublcov?color=2ea043"></a>
+    <a href="https://github.com/doublesharp/doublcov/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/doublesharp/doublcov/ci.yml?branch=main&label=ci"></a>
+    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  </p>
+</div>
 
-Find what's missing.
+Build from an existing `lcov.info` file or run one of the built-in coverage builders first:
 
-Static LCOV coverage reports for Solidity and general-purpose projects.
+```bash
+npx @0xdoublesharp/doublcov build --lcov lcov.info --sources src --out coverage/report
+```
 
-<p align="center">
-  <img src="docs/doublcov.png" alt="Doublcov" width="160">
-</p>
+## What You Get
 
-Doublcov helps you find what's missing by turning LCOV into a self-contained static web report with source browsing, uncovered navigation, history, diagnostics, syntax highlighting, themes, and declarative UI hooks. It can either build from an existing `lcov.info` file or run one of the built-in coverage builders first.
+- A portable static report directory you can upload to CI artifacts or any static host.
+- Built-in builders for Foundry, Hardhat, Vitest, Jest, Node/V8, pytest, Rust coverage tools, and gcov/lcov.
+- Source-level navigation for uncovered lines, branch/function totals, parser diagnostics, and historical coverage.
+- A GitHub Action, npm package, standalone binaries, and Docker image for different project shapes.
 
 ## Install
 
