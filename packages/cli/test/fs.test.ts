@@ -197,6 +197,31 @@ describe("readSourceFiles", () => {
     expect(files.map((file) => file.path)).toContain("src/real.ts");
   });
 
+  it("does not follow a symlinked directory that resolves outside the project root", async () => {
+    const srcDir = path.join(tempRoot, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(path.join(srcDir, "real.ts"), "inside\n", "utf8");
+
+    const outsideRoot = await realpath(
+      await mkdtemp(path.join(tmpdir(), "doublcov-outside-")),
+    );
+    try {
+      await writeFile(path.join(outsideRoot, "secret.ts"), "leak\n", "utf8");
+      await symlink(outsideRoot, path.join(srcDir, "external"));
+
+      const files = await readSourceFiles(["src"], {
+        root: tempRoot,
+        extensions: [".ts"],
+      });
+      const paths = files.map((file) => file.path);
+      expect(paths).toContain("src/real.ts");
+      expect(paths.some((p) => p.includes("secret.ts"))).toBe(false);
+      expect(files.every((file) => !file.content.includes("leak"))).toBe(true);
+    } finally {
+      await rm(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
   it("falls back to absolute path when a file resolves outside the root", async () => {
     const otherRoot = await realpath(
       await mkdtemp(path.join(tmpdir(), "doublcov-other-")),

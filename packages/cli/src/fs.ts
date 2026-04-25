@@ -86,10 +86,17 @@ export async function readSourceFiles(
   );
   const sourceRoots = new Set(inputs.map((input) => path.resolve(root, input)));
   const visited = new Set<string>();
+  let realRoot: string;
+  try {
+    realRoot = await fs.realpath(root);
+  } catch {
+    realRoot = root;
+  }
   const inputFiles = await collectFiles(
     [...sourceRoots],
     sourceRoots,
     root,
+    realRoot,
     visited,
   );
   const includedFiles = await collectExistingFiles(
@@ -121,6 +128,7 @@ async function collectFiles(
   inputs: string[],
   sourceRoots: Set<string>,
   root: string,
+  realRoot: string,
   visited: Set<string>,
 ): Promise<string[]> {
   const found: string[] = [];
@@ -146,6 +154,11 @@ async function collectFiles(
       } catch {
         realDirPath = input;
       }
+      // Reject symlinked directories that resolve outside the project root
+      // unless the user explicitly listed them as a source. Otherwise a
+      // src/external -> /etc symlink would slurp arbitrary host content
+      // into the coverage report.
+      if (!isExplicitRoot && !isInsideRealRoot(realDirPath, realRoot)) continue;
       if (visited.has(realDirPath)) continue;
       visited.add(realDirPath);
       const entries = await fs.readdir(input);
@@ -153,6 +166,7 @@ async function collectFiles(
         entries.map((entry) => path.join(input, entry)),
         sourceRoots,
         root,
+        realRoot,
         visited,
       );
       found.push(...nested);
@@ -161,6 +175,12 @@ async function collectFiles(
     }
   }
   return found;
+}
+
+function isInsideRealRoot(target: string, realRoot: string): boolean {
+  if (target === realRoot) return true;
+  const rel = path.relative(realRoot, target);
+  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
 }
 
 async function collectExistingFiles(
