@@ -6,6 +6,7 @@ import {
   registerLanguageDefinition,
   resolveLanguageDefinition,
   sourceExtensionsForLanguages,
+  sourceLanguageLabel,
 } from "../src/languages.js";
 
 const baseline = LANGUAGE_DEFINITIONS.slice();
@@ -78,6 +79,26 @@ describe("registerLanguageDefinition", () => {
       extensions: [".ts"],
     });
     expect(detectSourceLanguage("a.ts")).toBe("claim-ts");
+  });
+
+  it("survives a desync where a language was removed from the array but not the map", () => {
+    registerLanguageDefinition({
+      id: "desync-lang",
+      label: "v1",
+      extensions: [".dsx"],
+    });
+    const idx = LANGUAGE_DEFINITIONS.findIndex(
+      (lang) => lang.id === "desync-lang",
+    );
+    LANGUAGE_DEFINITIONS.splice(idx, 1);
+    expect(() =>
+      registerLanguageDefinition({
+        id: "desync-lang",
+        label: "v2",
+        extensions: [".dsx"],
+      }),
+    ).not.toThrow();
+    expect(resolveLanguageDefinition("desync-lang")?.label).toBe("v2");
   });
 
   it("does not duplicate the language in LANGUAGE_DEFINITIONS when re-registered", () => {
@@ -175,5 +196,49 @@ describe("detectIgnoredLines (Solidity assembly)", () => {
     const lines = ["  assembly (\"memory-safe\") {", "    let x := 1", "  }"];
     const ignored = detectIgnoredLines(lines, "solidity");
     expect(ignored.map((entry) => entry.line)).toEqual([1, 2, 3]);
+  });
+
+  it("does not crash on a string literal that ends with a stray backslash", () => {
+    // A line that ends with `"x\` is malformed Yul, but the scanner should
+    // still terminate (the backslash has no follow character to escape).
+    const lines = ["assembly {", '  let s := "x\\', "  }"];
+    expect(() => detectIgnoredLines(lines, "solidity")).not.toThrow();
+  });
+
+  it("does not exit assembly early on a } following an escaped quote in a yul string", () => {
+    // The string scanner needs to honor backslash escapes — `"\"}"` contains
+    // an escaped double-quote followed by a `}` *inside* the string, then
+    // the closing quote. A naive scan would see the `}` as code.
+    const lines = [
+      "assembly {",
+      '  let s := "\\"}"',
+      "  let x := 1",
+      "}",
+      "regularLine();",
+    ];
+    const ignored = detectIgnoredLines(lines, "solidity");
+    expect(ignored.map((entry) => entry.line)).toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe("sourceLanguageLabel", () => {
+  it("returns the human label for a known language", () => {
+    expect(sourceLanguageLabel("typescript")).toBe("TypeScript");
+    expect(sourceLanguageLabel("solidity")).toBe("Solidity");
+  });
+
+  it("falls back to the raw id when the language is unknown", () => {
+    // Cast through as any-like — the type allows arbitrary strings via
+    // `(string & {})`, and the function should not crash on unregistered ids.
+    expect(sourceLanguageLabel("not-a-real-language" as never)).toBe(
+      "not-a-real-language",
+    );
+  });
+});
+
+describe("detectSourceLanguage extension matching", () => {
+  it("matches .jsonc (the special-cased two-extension lookup)", () => {
+    expect(detectSourceLanguage("config.jsonc")).toBe("json");
+    expect(detectSourceLanguage("CONFIG.JSONC")).toBe("json");
   });
 });

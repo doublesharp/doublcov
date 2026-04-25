@@ -108,6 +108,16 @@ describe("sanitizeCoverageReportCustomization", () => {
     expect(result?.plugins?.[2]).toEqual({ id: "p3" });
   });
 
+  it("rejects hooks with whitespace-only id or label after trimming", () => {
+    const result = sanitizeCoverageReportCustomization({
+      hooks: [
+        { id: "   ", hook: "report:header", label: "Real" },
+        { id: "real", hook: "report:header", label: "   " },
+      ],
+    });
+    expect(result).toBeUndefined();
+  });
+
   it("includes optional hook fields only when valid", () => {
     const result = sanitizeCoverageReportCustomization({
       hooks: [
@@ -233,6 +243,20 @@ describe("sanitizeCoverageHref", () => {
     expect(sanitizeCoverageHref("\\\\evil.com")).toBeUndefined();
     expect(sanitizeCoverageHref("/\\evil.com")).toBeUndefined();
     expect(sanitizeCoverageHref("\\/evil.com")).toBeUndefined();
+  });
+
+  it("returns undefined when URL parsing throws on malformed input", () => {
+    // An unterminated IPv6 literal makes the URL parser throw — we should
+    // catch that and return undefined rather than letting it propagate.
+    expect(sanitizeCoverageHref("http://[::1")).toBeUndefined();
+    expect(sanitizeCoverageHref("https://[invalid")).toBeUndefined();
+  });
+
+  it("returns undefined for unknown but parseable schemes", () => {
+    // ftp:// parses cleanly but is not whitelisted; the function should fall
+    // through to the trailing `return undefined`.
+    expect(sanitizeCoverageHref("ftp://example.test/")).toBeUndefined();
+    expect(sanitizeCoverageHref("ws://example.test/")).toBeUndefined();
   });
 
   it("exposes the documented hook locations", () => {

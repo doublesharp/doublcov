@@ -68,7 +68,7 @@ export function parseLcov(input: string): LcovRecord[] {
         const [lineNumber, rawName] = splitOnce(value, ",");
         const parsedLine = Number(lineNumber);
         const name = rawName.trim();
-        if (Number.isFinite(parsedLine) && name) {
+        if (Number.isInteger(parsedLine) && parsedLine >= 1 && name) {
           functionLines.set(name, parsedLine);
           const existing = current.functions.find((fn) => fn.name === name);
           if (existing) {
@@ -85,7 +85,7 @@ export function parseLcov(input: string): LcovRecord[] {
         const [hits, rawName] = splitOnce(value, ",");
         const name = rawName.trim();
         const parsedHits = Number(hits);
-        if (!name || !Number.isFinite(parsedHits)) break;
+        if (!name || !Number.isInteger(parsedHits) || parsedHits < 0) break;
         const existing = current.functions.find((fn) => fn.name === name);
         if (existing) {
           existing.hits = parsedHits;
@@ -98,7 +98,8 @@ export function parseLcov(input: string): LcovRecord[] {
         const [lineNumber, block, branch, taken] = value.split(",");
         const parsedLine = Number(lineNumber);
         if (
-          Number.isFinite(parsedLine) &&
+          Number.isInteger(parsedLine) &&
+          parsedLine >= 1 &&
           block !== undefined &&
           branch !== undefined
         ) {
@@ -182,5 +183,5 @@ function parseBrdaTaken(
   // would silently masquerade as a not-taken branch. Reject it instead.
   if (value === "") return INVALID_TAKEN;
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : INVALID_TAKEN;
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : INVALID_TAKEN;
 }

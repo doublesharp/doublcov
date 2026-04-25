@@ -40,6 +40,21 @@ describe("registerDiagnosticParser", () => {
     expect(occurrences[0]?.label).toBe("second");
     expect(resolveDiagnosticParser("dup")?.label).toBe("second");
   });
+
+  it("survives a desync where the parser was removed from the array but not the map", () => {
+    // External callers may mutate DIAGNOSTIC_PARSERS directly (e.g. via the
+    // splice-based reset other tests use). registerDiagnosticParser should
+    // not crash when its findIndex returns -1.
+    registerDiagnosticParser({ id: "desync", label: "v1", parse: () => [] });
+    const idx = DIAGNOSTIC_PARSERS.findIndex(
+      (parser) => parser.id === "desync",
+    );
+    DIAGNOSTIC_PARSERS.splice(idx, 1);
+    expect(() =>
+      registerDiagnosticParser({ id: "desync", label: "v2", parse: () => [] }),
+    ).not.toThrow();
+    expect(resolveDiagnosticParser("desync")?.label).toBe("v2");
+  });
 });
 
 describe("resolveDiagnosticParser", () => {
@@ -122,6 +137,37 @@ describe("parseDiagnostics", () => {
     ]);
     const ids = diagnostics.map((diagnostic) => diagnostic.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("parseDiagnostics through the registry", () => {
+  it("invokes the registered foundry-bytecode parser", () => {
+    const diagnostics = parseDiagnostics([
+      { parser: "foundry-bytecode", content: "src/Foo.sol:5: bytecode-only" },
+    ]);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({
+      source: "foundry-bytecode",
+      filePath: "src/Foo.sol",
+      line: 5,
+    });
+  });
+
+  it("surfaces a sensible message when a parser throws a non-Error value", () => {
+    registerDiagnosticParser({
+      id: "throws-string",
+      label: "Throws String",
+      parse: () => {
+        // eslint-disable-next-line @typescript-eslint/no-throw-literal
+        throw "raw-string-error";
+      },
+    });
+    const diagnostics = parseDiagnostics([
+      { parser: "throws-string", content: "anything" },
+    ]);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]?.severity).toBe("warning");
+    expect(diagnostics[0]?.message).toContain("raw-string-error");
   });
 });
 

@@ -124,4 +124,53 @@ end_of_record`);
       hits: 0,
     });
   });
+
+  it("silently drops FN records that lack the comma-separated name", () => {
+    // FN:10 (no name) is malformed; splitOnce returns ['10', ''] and the
+    // empty name should be filtered out.
+    const [record] = parseLcov(`SF:src/Foo.ts
+FN:10
+FN:20,real
+FNDA:1,real
+DA:20,1
+end_of_record`);
+    expect(record?.functions).toHaveLength(1);
+    expect(record?.functions[0]).toMatchObject({ name: "real", line: 20 });
+  });
+
+  it("silently drops FNDA records that lack the comma-separated name", () => {
+    const [record] = parseLcov(`SF:src/Foo.ts
+FN:10,real
+FNDA:7
+FNDA:1,real
+DA:10,1
+end_of_record`);
+    expect(record?.functions).toHaveLength(1);
+    expect(record?.functions[0]).toMatchObject({
+      name: "real",
+      line: 10,
+      hits: 1,
+    });
+  });
+
+  it("skips lines that have no colon separator", () => {
+    // 'DA1,1' is missing the colon — should be ignored, not crash.
+    const [record] = parseLcov(`SF:src/Foo.ts
+DA1,1
+DA:2,1
+end_of_record`);
+    expect(record?.lines.has(1)).toBe(false);
+    expect(record?.lines.get(2)).toBe(1);
+  });
+
+  it("tolerates leading whitespace before tags", () => {
+    // The parser trims each line; indented LCOV emitters should still parse.
+    const [record] = parseLcov(`  SF:src/Foo.ts
+   DA:1,1
+   DA:2,0
+end_of_record`);
+    expect(record?.sourceFile).toBe("src/Foo.ts");
+    expect(record?.lines.get(1)).toBe(1);
+    expect(record?.totals.lines.found).toBe(2);
+  });
 });
