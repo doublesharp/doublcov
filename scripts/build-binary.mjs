@@ -6,9 +6,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const requireFromRoot = createRequire(path.join(root, "package.json"));
 const cliRoot = path.join(root, "packages", "cli");
 const requireFromCli = createRequire(path.join(cliRoot, "package.json"));
 const { build } = await import(pathToFileURL(requireFromCli.resolve("esbuild")).href);
+const postjectCliPath = path.join(path.dirname(requireFromRoot.resolve("postject/package.json")), "dist", "cli.js");
 const dist = path.join(cliRoot, "dist");
 const seaDir = path.join(dist, "sea");
 const binDir = path.join(dist, "bin");
@@ -72,9 +74,8 @@ if (process.platform === "darwin") {
   await run("codesign", ["--remove-signature", executablePath]);
 }
 
-await run(postjectCommand(), [
-  "exec",
-  "postject",
+await run(process.execPath, [
+  postjectCliPath,
   executablePath,
   "NODE_SEA_BLOB",
   seaBlobPath,
@@ -127,11 +128,6 @@ function run(command, args) {
       reject(new Error(signal ? `${command} exited from signal ${signal}.` : `${command} exited with status ${code}.`));
     });
   });
-}
-
-/** @returns {string} */
-function postjectCommand() {
-  return process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 }
 
 /**
