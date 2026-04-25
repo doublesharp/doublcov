@@ -6,6 +6,12 @@ import path from "node:path";
 import type { Socket } from "node:net";
 import { pathToFileURL } from "node:url";
 import { DEFAULT_SERVE_TIMEOUT_MS, type ReportMode } from "./args.js";
+import { injectServerLeasePrompt } from "./serverClient.js";
+import {
+  contentType,
+  formatDuration,
+  isInsideRoot,
+} from "./serverHelpers.js";
 
 export type BrowserOpenCommand = { command: string; args: string[] };
 
@@ -114,7 +120,7 @@ async function detectReportMode(indexPath: string): Promise<ReportMode> {
   return html.includes('id="doublcov-report-data"') ? "standalone" : "static";
 }
 
-async function serveRequest(
+export async function serveRequest(
   root: string,
   state: ServerState,
   requestUrl: string,
@@ -148,23 +154,37 @@ async function serveRequest(
       sendText(response, 403, "Forbidden");
       return;
     }
-    const stat = await fs.stat(targetPath);
+    let realTarget: string;
+    try {
+      realTarget = await fs.realpath(targetPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        sendText(response, 404, "Not found");
+        return;
+      }
+      throw error;
+    }
+    if (!isInsideRoot(realTarget, root)) {
+      sendText(response, 403, "Forbidden");
+      return;
+    }
+    const stat = await fs.stat(realTarget);
     if (stat.isDirectory()) {
       sendText(response, 403, "Forbidden");
       return;
     }
     const headers = {
-      "content-type": contentType(targetPath),
+      "content-type": contentType(realTarget),
       "cache-control": "no-store",
     };
-    if (path.basename(targetPath) === "index.html") {
-      const html = await fs.readFile(targetPath, "utf8");
+    if (path.basename(realTarget) === "index.html") {
+      const html = await fs.readFile(realTarget, "utf8");
       response.writeHead(200, headers);
       response.end(injectServerLeasePrompt(html, root));
       return;
     }
     response.writeHead(200, headers);
-    createReadStream(targetPath).pipe(response);
+    createReadStream(realTarget).pipe(response);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       sendText(response, 404, "Not found");
@@ -191,7 +211,7 @@ function sendText(
   response.end(text);
 }
 
-function serverStatus(state: ServerState): {
+export function serverStatus(state: ServerState): {
   remainingMs: number;
   timeoutMs: number;
 } {
@@ -218,27 +238,6 @@ function serveEvents(response: ServerResponse, state: ServerState): void {
   };
   state.shutdownListeners.add(notify);
   response.on("close", () => state.shutdownListeners.delete(notify));
-}
-
-function isInsideRoot(targetPath: string, root: string): boolean {
-  const relative = path.relative(root, targetPath);
-  return (
-    relative === "" ||
-    (!relative.startsWith("..") && !path.isAbsolute(relative))
-  );
-}
-
-function contentType(filePath: string): string {
-  const extension = path.extname(filePath).toLowerCase();
-  if (extension === ".html") return "text/html; charset=utf-8";
-  if (extension === ".js" || extension === ".mjs")
-    return "text/javascript; charset=utf-8";
-  if (extension === ".css") return "text/css; charset=utf-8";
-  if (extension === ".json") return "application/json; charset=utf-8";
-  if (extension === ".svg") return "image/svg+xml";
-  if (extension === ".png") return "image/png";
-  if (extension === ".wasm") return "application/wasm";
-  return "application/octet-stream";
 }
 
 function waitForShutdown(
@@ -277,96 +276,6 @@ function waitForShutdown(
       timeout = setTimeout(checkDeadline, Math.min(state.timeoutMs, 1000));
     }
   });
-}
-
-function injectServerLeasePrompt(html: string, reportDir: string): string {
-  const restartCommand = `doublcov open ${shellQuote(reportDir)}`;
-  const script = `<script>
-(() => {
-  const restartCommand = ${JSON.stringify(restartCommand)};
-  const root = document.createElement("div");
-  root.style.cssText = "position:fixed;right:16px;bottom:16px;z-index:2147483647;max-width:360px;padding:12px 14px;border:1px solid #334155;border-radius:8px;background:#111827;color:#e5e7eb;font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.35)";
-  root.hidden = true;
-  const text = document.createElement("div");
-  const command = document.createElement("code");
-  command.style.cssText = "display:block;margin-top:8px;padding:6px 8px;border-radius:6px;background:#020617;color:#bfdbfe;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-all";
-  command.hidden = true;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = "Extend session";
-  button.style.cssText = "margin-top:8px;padding:6px 10px;border:1px solid #60a5fa;border-radius:6px;background:#1d4ed8;color:white;font:inherit;cursor:pointer";
-  root.append(text, command, button);
-  document.addEventListener("DOMContentLoaded", () => document.body.append(root));
-
-  const warningWindowMs = 10 * 60 * 1000;
-  const format = (ms) => {
-    const total = Math.max(0, Math.ceil(ms / 1000));
-    const minutes = Math.floor(total / 60);
-    const seconds = total % 60;
-    return minutes > 0 ? minutes + "m " + String(seconds).padStart(2, "0") + "s" : seconds + "s";
-  };
-  let serverConfirmed = false;
-  const render = (status) => {
-    if (!status || !status.timeoutMs) return;
-    serverConfirmed = true;
-    if (status.remainingMs > warningWindowMs) {
-      root.hidden = true;
-      return;
-    }
-    root.hidden = false;
-    text.textContent = "Local report server stops in " + format(status.remainingMs) + ".";
-  };
-  const stopped = () => {
-    if (!serverConfirmed) {
-      root.remove();
-      return;
-    }
-    root.hidden = false;
-    text.textContent = "The local report server has stopped. Run doublcov open again to reload source data.";
-    command.textContent = restartCommand;
-    command.hidden = false;
-    button.hidden = true;
-  };
-  const refresh = async () => {
-    try {
-      const response = await fetch("/__doublcov/status", { cache: "no-store" });
-      if (!response.ok) throw new Error("status failed");
-      render(await response.json());
-    } catch {
-      stopped();
-    }
-  };
-  button.addEventListener("click", async () => {
-    const response = await fetch("/__doublcov/extend", { method: "POST", cache: "no-store" });
-    if (response.ok) render(await response.json());
-  });
-  if ("EventSource" in window) {
-    const events = new EventSource("/__doublcov/events");
-    events.addEventListener("shutdown", stopped);
-    events.onerror = () => {
-      events.close();
-      stopped();
-    };
-  }
-  refresh();
-  setInterval(refresh, 5000);
-})();
-</script>`;
-  return html.includes("</body>")
-    ? html.replace("</body>", `${script}\n</body>`)
-    : `${html}\n${script}`;
-}
-
-function formatDuration(ms: number): string {
-  if (ms % (60 * 60 * 1000) === 0) return `${ms / (60 * 60 * 1000)}h`;
-  if (ms % (60 * 1000) === 0) return `${ms / (60 * 1000)}m`;
-  if (ms % 1000 === 0) return `${ms / 1000}s`;
-  return `${ms}ms`;
-}
-
-function shellQuote(value: string): string {
-  if (/^[A-Za-z0-9_./:-]+$/.test(value)) return value;
-  return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 function launchBrowser(target: string): void {
