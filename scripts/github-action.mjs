@@ -28,6 +28,7 @@ const baseUrl =
   version === "latest"
     ? `https://github.com/${repository}/releases/latest/download`
     : `https://github.com/${repository}/releases/download/${version}`;
+const maxDownloadAttempts = 4;
 
 await mkdir(cacheDir, { recursive: true });
 await download(`${baseUrl}/${asset}`, executablePath);
@@ -97,6 +98,32 @@ function normalizeArch(value) {
  * @returns {Promise<void>}
  */
 async function download(url, destination, redirects = 0) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxDownloadAttempts; attempt += 1) {
+    try {
+      await downloadOnce(url, destination, redirects);
+      return;
+    } catch (caught) {
+      lastError = caught;
+      if (!shouldRetryDownload(caught) || attempt === maxDownloadAttempts)
+        break;
+      const delayMs = 500 * 2 ** (attempt - 1);
+      console.warn(
+        `Download failed; retrying in ${delayMs}ms (${attempt}/${maxDownloadAttempts}): ${caught instanceof Error ? caught.message : String(caught)}`,
+      );
+      await sleep(delayMs);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+/**
+ * @param {string} url
+ * @param {string} destination
+ * @param {number} redirects
+ * @returns {Promise<void>}
+ */
+async function downloadOnce(url, destination, redirects) {
   if (redirects > 5)
     throw new Error(`Too many redirects while downloading ${url}`);
   await new Promise((resolve, reject) => {
@@ -132,6 +159,26 @@ async function download(url, destination, redirects = 0) {
     );
     request.on("error", reject);
   });
+}
+
+/**
+ * @param {unknown} caught
+ * @returns {boolean}
+ */
+function shouldRetryDownload(caught) {
+  if (!(caught instanceof Error)) return false;
+  return (
+    /\bHTTP (?:408|429|5\d\d)\b/.test(caught.message) ||
+    /\b(?:ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND)\b/.test(caught.message)
+  );
+}
+
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

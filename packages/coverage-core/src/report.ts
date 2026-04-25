@@ -60,7 +60,11 @@ export function buildCoverageBundle(
       .filter((line) => line.reason === "solidity-assembly")
       .map((line) => line.line);
     const id = stableFileId(index, normalizedPath);
-    const includedFunctions = record.functions.filter(
+    const displayFunctions = record.functions.map((fn) => ({
+      ...fn,
+      name: displayFunctionName(fn, language, lines),
+    }));
+    const includedFunctions = displayFunctions.filter(
       (fn) => !ignoredLineNumbers.has(fn.line),
     );
     const includedBranches = record.branches.filter(
@@ -302,13 +306,139 @@ function mergeTaken(left: number | null, right: number | null): number | null {
   return (left ?? 0) + (right ?? 0);
 }
 
+function displayFunctionName(
+  fn: FunctionDetail,
+  language: string,
+  sourceLines: string[],
+): string {
+  if (!isLikelyMangledSymbol(fn.name)) return fn.name;
+  return (
+    findNearbySourceFunctionName(sourceLines, fn.line, language) ??
+    `Function at line ${fn.line}`
+  );
+}
+
+function isLikelyMangledSymbol(name: string): boolean {
+  return (
+    /^_R[A-Za-z0-9_.$]+$/.test(name) ||
+    /^_Z[A-Za-z0-9_.$]+/.test(name) ||
+    /^__Z[A-Za-z0-9_.$]+/.test(name) ||
+    /^\?[A-Za-z_@$?][A-Za-z0-9_@$?]*@@/.test(name) ||
+    /^_?\$[sS][A-Za-z0-9_.$]+/.test(name)
+  );
+}
+
+function findNearbySourceFunctionName(
+  sourceLines: string[],
+  lineNumber: number,
+  language: string,
+): string | undefined {
+  const index = Math.max(0, lineNumber - 1);
+  const start = Math.max(0, index - 10);
+  const end = Math.min(sourceLines.length - 1, index + 2);
+
+  if (language === "rust" && /\|[^|]*\|/.test(sourceLines[index] ?? "")) {
+    return `Closure at line ${lineNumber}`;
+  }
+  for (let current = index - 1; current >= start; current -= 1) {
+    if (language === "rust" && /\|[^|]*\|/.test(sourceLines[current] ?? "")) {
+      return `Closure at line ${lineNumber}`;
+    }
+  }
+  for (let current = index; current >= start; current -= 1) {
+    const functionName = parseSourceFunctionName(
+      sourceLines[current] ?? "",
+      language,
+    );
+    if (functionName) return functionName;
+  }
+  for (let current = index + 1; current <= end; current += 1) {
+    const functionName = parseSourceFunctionName(
+      sourceLines[current] ?? "",
+      language,
+    );
+    if (functionName) return functionName;
+  }
+  return undefined;
+}
+
+function parseSourceFunctionName(
+  line: string,
+  language: string,
+): string | undefined {
+  const parsers =
+    language === "rust"
+      ? [parseRustFunctionName]
+      : language === "swift"
+        ? [parseSwiftFunctionName]
+        : language === "go"
+          ? [parseGoFunctionName]
+          : language === "python"
+            ? [parsePythonFunctionName]
+            : [
+                parseCodeLikeFunctionName,
+                parseRustFunctionName,
+                parseSwiftFunctionName,
+                parseGoFunctionName,
+                parsePythonFunctionName,
+              ];
+
+  for (const parser of parsers) {
+    const parsed = parser(line);
+    if (parsed) return parsed;
+  }
+  return undefined;
+}
+
+function parseRustFunctionName(line: string): string | undefined {
+  return matchFunctionName(
+    line,
+    /\b(?:pub(?:\([^)]*\))?\s+)?(?:(?:async|const|unsafe)\s+)*(?:extern\s+(?:"[^"]+"\s+)?)?fn\s+([A-Za-z_][A-Za-z0-9_]*)/,
+  );
+}
+
+function parseSwiftFunctionName(line: string): string | undefined {
+  return matchFunctionName(
+    line,
+    /\b(?:public|private|internal|fileprivate|open|static|class|mutating|nonmutating|override|final|\s)*func\s+([A-Za-z_][A-Za-z0-9_]*)/,
+  );
+}
+
+function parseGoFunctionName(line: string): string | undefined {
+  return matchFunctionName(
+    line,
+    /\bfunc\s+(?:\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)/,
+  );
+}
+
+function parsePythonFunctionName(line: string): string | undefined {
+  return matchFunctionName(
+    line,
+    /^\s*(?:async\s+)?def\s+([A-Za-z_][A-Za-z0-9_]*)/,
+  );
+}
+
+function parseCodeLikeFunctionName(line: string): string | undefined {
+  if (/\b(?:if|for|while|switch|catch|return|sizeof)\s*\(/.test(line))
+    return undefined;
+  return matchFunctionName(
+    line,
+    /(?:^|[\s:*&~])(?:[A-Za-z_][A-Za-z0-9_:<>~]*::)*([~A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*\)\s*(?:const\b|noexcept\b|override\b|final\b|->\s*[^{}]+|\{|$)/,
+  );
+}
+
+function matchFunctionName(line: string, pattern: RegExp): string | undefined {
+  const match = line.match(pattern);
+  return match?.[1] ? `${match[1]}()` : undefined;
+}
+
 function buildUncoveredItems(files: SourceFileCoverage[]): UncoveredItem[] {
   return files.flatMap((file) => [
     ...file.uncovered.lines.map((line) => ({
       id: `line:${file.id}:${line}`,
       kind: "line" as const,
       fileId: file.id,
-      filePath: file.path,
+      filePath: file.displayPath,
       line,
       label: `Line ${line}`,
       detail: "Line was not executed",
@@ -317,7 +447,7 @@ function buildUncoveredItems(files: SourceFileCoverage[]): UncoveredItem[] {
       id: `function:${file.id}:${fn.name}:${fn.line}`,
       kind: "function" as const,
       fileId: file.id,
-      filePath: file.path,
+      filePath: file.displayPath,
       line: fn.line,
       label: fn.name,
       detail: "Function was not called",
@@ -326,7 +456,7 @@ function buildUncoveredItems(files: SourceFileCoverage[]): UncoveredItem[] {
       id: `branch:${file.id}:${branch.line}:${branch.block}:${branch.branch}`,
       kind: "branch" as const,
       fileId: file.id,
-      filePath: file.path,
+      filePath: file.displayPath,
       line: branch.line,
       label: `Branch ${branch.block}.${branch.branch}`,
       detail: "Branch path was not taken",

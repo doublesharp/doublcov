@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1
+
+Fixes GitHub Pages coverage dogfooding and improves generated report readability.
+
+- Added a Doublcov GitHub Actions workflow that publishes this repository's coverage report to GitHub Pages at `/coverage/`.
+- Added a workspace LCOV generation script for merged Vitest coverage with monorepo-safe source paths.
+- Replaced likely compiler-mangled function symbols with source-derived function names, or a neutral `Function at line N` fallback, across Rust, C++/MSVC, and Swift-style symbols.
+- Updated uncovered navigator rows to use trimmed display paths.
+- Added retry handling for transient GitHub Release asset download failures in the GitHub Action.
+
 ## 0.3.0
 
 Adds scalable static report output for large codebases while keeping single-file reports as the local default.

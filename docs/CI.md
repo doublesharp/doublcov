@@ -42,7 +42,7 @@ For projects in any language, the official action downloads the release binary, 
 ```
 
 Use the moving major action ref for compatible action updates. Omit `version`
-to download the latest GitHub Release binary, or set `version: v0.3.0` to pin
+to download the latest GitHub Release binary, or set `version: v0.3.1` to pin
 the downloaded CLI binary for reproducible CI.
 
 To install `doublcov` into `PATH` and run multiple commands:
@@ -50,7 +50,7 @@ To install `doublcov` into `PATH` and run multiple commands:
 ```yaml
 - uses: doublesharp/doublcov@v0
   with:
-    version: v0.3.0
+    version: v0.3.1
     install-only: "true"
 
 - run: doublcov build --lcov coverage/lcov.info --sources src --out coverage/report --no-open
@@ -90,6 +90,34 @@ Good options:
 - Netlify
 - Vercel
 - S3, GCS, Azure Blob Storage, or compatible object storage
+
+### GitHub Pages At `/coverage/`
+
+Use static mode for Pages. Publish `coverage/report` under a `coverage`
+subdirectory in the Pages artifact, and add a root redirect so the site root can
+forward to the report:
+
+```yaml
+- uses: doublesharp/doublcov@v0
+  with:
+    command: build
+    args: --lcov coverage/lcov.info --sources src --out coverage/report --mode static
+
+- run: |
+    mkdir -p pages/coverage
+    cp -R coverage/report/. pages/coverage/
+    printf '%s\n' '<!doctype html><meta http-equiv="refresh" content="0; url=coverage/">' > pages/index.html
+
+- uses: actions/upload-pages-artifact@v3
+  with:
+    path: pages
+
+- uses: actions/deploy-pages@v5
+```
+
+The Doublcov repository dogfoods this flow in
+`.github/workflows/coverage.yml`: pull requests upload `doublcov-report`, while
+main-branch runs publish the same static report to GitHub Pages at `/coverage/`.
 
 ## History
 

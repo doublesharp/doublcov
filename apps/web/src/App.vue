@@ -75,6 +75,9 @@ const selectedFile = computed(
     report.value?.files.find((file) => file.id === selectedFileId.value) ??
     null,
 );
+const filesById = computed(
+  () => new Map((report.value?.files ?? []).map((file) => [file.id, file])),
+);
 const availableThemes = computed(() =>
   mergeThemes(builtInThemes, report.value?.customization?.themes ?? []),
 );
@@ -151,7 +154,7 @@ const filteredUncoveredItems = computed(() => {
     .filter(
       (item) =>
         !needle ||
-        `${item.filePath} ${item.label} ${item.detail}`
+        `${displayUncoveredItemPath(item)} ${displayUncoveredItemLabel(item)} ${item.detail}`
           .toLowerCase()
           .includes(needle),
     );
@@ -838,6 +841,27 @@ function ignoredLineShortLabel(lineNumber: number): string {
   return "ign";
 }
 
+function displayUncoveredItemLabel(item: UncoveredItem): string {
+  if (item.kind !== "function" || !isLikelyMangledSymbol(item.label)) {
+    return item.label;
+  }
+  return `Function at line ${item.line}`;
+}
+
+function displayUncoveredItemPath(item: UncoveredItem): string {
+  return filesById.value.get(item.fileId)?.displayPath ?? item.filePath;
+}
+
+function isLikelyMangledSymbol(value: string): boolean {
+  return (
+    /^_R[A-Za-z0-9_.$]+$/.test(value) ||
+    /^_Z[A-Za-z0-9_.$]+/.test(value) ||
+    /^__Z[A-Za-z0-9_.$]+/.test(value) ||
+    /^\?[A-Za-z_@$?][A-Za-z0-9_@$?]*@@/.test(value) ||
+    /^_?\$[sS][A-Za-z0-9_.$]+/.test(value)
+  );
+}
+
 function highlightedLine(line: {
   number: number;
   text: string;
@@ -1342,11 +1366,13 @@ function parseUncoveredKind(value: string | null): UncoveredKind | "all" {
                     @click="jumpToItem(entry.item)"
                   >
                     <div class="truncate font-medium">
-                      {{ entry.item.label }}
+                      {{ displayUncoveredItemLabel(entry.item) }}
                       <span class="muted">· {{ entry.item.kind }}</span>
                     </div>
                     <div class="muted truncate text-xs">
-                      {{ entry.item.filePath }}:{{ entry.item.line }}
+                      {{ displayUncoveredItemPath(entry.item) }}:{{
+                        entry.item.line
+                      }}
                     </div>
                   </button>
                 </div>

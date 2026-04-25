@@ -484,13 +484,96 @@ end_of_record`,
       path: "crates/abi/src/lib.rs",
     });
     expect(bundle.report.uncoveredItems[0]).toMatchObject({
-      filePath: "crates/abi/src/lib.rs",
+      filePath: "src/lib.rs",
     });
     expect(
       bundle.report.diagnostics.filter(
         (diagnostic) => diagnostic.source === "doublcov",
       ),
     ).toHaveLength(0);
+  });
+
+  it("uses readable display paths and labels for Rust mangled function symbols", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `TN:
+SF:crates/abi-typegen-codegen/src/renderers/wagmi.rs
+FN:3,_RNvCsfdPHj7id2zQ_19abi_typegen_codegen9renderers5wagmi6render
+FN:6,_RNCNvNtNtCsfdPHj7id2zQ_19abi_typegen_codegen9renderers5wagmi6render0
+FNDA:0,_RNvCsfdPHj7id2zQ_19abi_typegen_codegen9renderers5wagmi6render
+FNDA:0,_RNCNvNtNtCsfdPHj7id2zQ_19abi_typegen_codegen9renderers5wagmi6render0
+DA:3,0
+DA:6,0
+end_of_record`,
+      sourceFiles: [
+        {
+          path: "crates/abi-typegen-codegen/src/renderers/wagmi.rs",
+          content: [
+            "pub fn render() {",
+            '    let fields = vec!["name"];',
+            "    fields",
+            "        .iter()",
+            "        .map(|field| field.to_string())",
+            "        .collect::<Vec<_>>();",
+            "}",
+          ].join("\n"),
+        },
+      ],
+    });
+
+    expect(bundle.report.files[0]?.displayPath).toBe("src/renderers/wagmi.rs");
+    expect(bundle.report.uncoveredItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "function",
+          filePath: "src/renderers/wagmi.rs",
+          label: "render()",
+        }),
+        expect.objectContaining({
+          kind: "function",
+          filePath: "src/renderers/wagmi.rs",
+          label: "Closure at line 6",
+        }),
+      ]),
+    );
+  });
+
+  it("uses source-level names for other mangled function symbols", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `TN:
+SF:src/native.cpp
+FN:1,_Z3foov
+FNDA:0,_Z3foov
+DA:1,0
+end_of_record
+TN:
+SF:src/renderer.swift
+FN:1,_$s8Renderer6renderSiyF
+FNDA:0,_$s8Renderer6renderSiyF
+DA:1,0
+end_of_record`,
+      sourceFiles: [
+        { path: "src/native.cpp", content: "int foo() {\n  return 1;\n}" },
+        {
+          path: "src/renderer.swift",
+          content: "func render() -> Int {\n  1\n}",
+        },
+      ],
+    });
+
+    expect(bundle.report.uncoveredItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "function",
+          filePath: "src/native.cpp",
+          label: "foo()",
+        }),
+        expect.objectContaining({
+          kind: "function",
+          filePath: "src/renderer.swift",
+          label: "render()",
+        }),
+      ]),
+    );
   });
 
   it("carries report customization metadata through the generic bundle", () => {
