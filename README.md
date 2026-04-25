@@ -178,12 +178,13 @@ Reports are static directories with a self-contained `index.html`. Open `coverag
 GitHub Actions example:
 
 ```yaml
-- uses: doublesharp/doublcov@<release-tag>
+- uses: doublesharp/doublcov@v0
   with:
-    version: <release-tag>
     command: build
     args: --lcov coverage/lcov.info --sources src --out coverage/report
 ```
+
+Add `version: v0.2.1` when you want to pin the downloaded Doublcov binary instead of using the latest release.
 
 Use the npm package for Node projects, the GitHub Action for language-neutral CI, standalone binaries for local non-Node use, and Docker when your CI standardizes on containers. See [CI And Hosting](docs/CI.md) and [Releasing](docs/RELEASING.md).
 

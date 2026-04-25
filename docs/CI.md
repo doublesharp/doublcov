@@ -34,22 +34,22 @@ or publishes it. To keep it as a downloadable workflow artifact:
 For projects in any language, the official action downloads the release binary, verifies it, and runs Doublcov:
 
 ```yaml
-- uses: doublesharp/doublcov@<release-tag>
+- uses: doublesharp/doublcov@v0
   with:
-    version: <release-tag>
     command: build
     args: --lcov coverage/lcov.info --sources src --out coverage/report
 ```
 
-Use the same release tag for the action ref and the `version` input. The
-`version` input also accepts `latest`, but pinned tags make CI reproducible.
+Use the moving major action ref for compatible action updates. Omit `version`
+to download the latest GitHub Release binary, or set `version: v0.2.1` to pin
+the downloaded CLI binary for reproducible CI.
 
 To install `doublcov` into `PATH` and run multiple commands:
 
 ```yaml
-- uses: doublesharp/doublcov@<release-tag>
+- uses: doublesharp/doublcov@v0
   with:
-    version: <release-tag>
+    version: v0.2.1
     install-only: "true"
 
 - run: doublcov build --lcov coverage/lcov.info --sources src --out coverage/report --no-open

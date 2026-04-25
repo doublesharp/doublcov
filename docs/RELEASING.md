@@ -17,15 +17,37 @@ Additional install channels should consume the tagged GitHub Release binaries an
 
 ## Release Workflow
 
-Tagged `v*` pushes trigger [`.github/workflows/release.yml`](../.github/workflows/release.yml). Five jobs, all gated on `verify`:
+Tagged stable semver pushes (`v*.*.*`) trigger [`.github/workflows/release.yml`](../.github/workflows/release.yml). Release tags are immutable version tags such as `v0.2.1`; moving major tags such as `v0` are maintained by the workflow and must not create releases themselves. The release jobs are:
 
 1. **`verify`** — `pnpm run verify:publish` (build + typecheck + tests + npm-pack smoke).
 2. **`binary`** — matrix across `linux-x64`, `linux-arm64`, `macos-x64`, `macos-arm64`, `windows-x64`. Each runner builds its native standalone binary.
 3. **`github-release`** — collects binary artifacts, generates `SHA256SUMS`, creates the GitHub Release with notes from `CHANGELOG.md`.
 4. **`npm`** — installs the latest npm CLI and publishes `@0xdoublesharp/doublcov` with trusted-publishing provenance.
 5. **`container`** — builds and pushes the multi-arch image to GHCR.
+6. **`container-manifest`** — publishes the multi-arch `:<tag>` and `:latest` image manifests.
+7. **`major-tag`** — after the release, npm, and container publish succeed, force-updates the moving major tag (`v0` for `v0.x.y`) to the released commit.
 
 Pull requests and `main` pushes run [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (`verify:publish` only, no artifacts).
+
+## Action Major Tags
+
+The GitHub Action should be documented with a moving major tag:
+
+```yaml
+- uses: doublesharp/doublcov@v0
+```
+
+The workflow updates `v0` after every successful stable `v0.x.y` release. Do not manually publish a GitHub Release for `v0`; it is only an action convenience tag.
+
+Use the action `version` input to control which Doublcov binary the action downloads:
+
+```yaml
+- uses: doublesharp/doublcov@v0
+  with:
+    version: v0.2.1
+```
+
+Omit `version` to download the latest GitHub Release binary. Pin `version` in reproducible CI examples; omit it in quick-start examples where following the latest release is acceptable.
 
 ## Local Dry Run
 
@@ -52,7 +74,7 @@ Builder subcommands still require their underlying tool on `PATH` (e.g. `doublco
 
 **Container** is built from [`Dockerfile`](../Dockerfile) on Node 22 Alpine. It ships the bundled CLI under `/opt/doublcov/dist` with a shim at `/usr/local/bin/doublcov`; it is not the SEA binary. Entrypoint `doublcov`, workdir `/work`.
 
-**GitHub Action** is implemented by [`scripts/github-action.mjs`](../scripts/github-action.mjs). Inputs: `version`, `repository`, `command`, `args`, `install-only`. Output: `path`. Pin via the `version` input rather than the action ref so the action and binary versions stay decoupled.
+**GitHub Action** is implemented by [`scripts/github-action.mjs`](../scripts/github-action.mjs). Inputs: `version`, `repository`, `command`, `args`, `install-only`. Output: `path`. Use the moving major action ref (`doublesharp/doublcov@v0`) for compatible action updates, and pin the downloaded CLI binary with the `version` input when reproducibility matters.
 
 ## Core Package
 
