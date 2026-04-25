@@ -108,7 +108,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         shell: bash
-        run: gh release create "$TAG_NAME" release-assets/* --title "$TAG_NAME" --notes-file CHANGELOG.md
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" release-assets/* --clobber
+          else
+            gh release create "$TAG_NAME" release-assets/* --title "$TAG_NAME" --notes-file CHANGELOG.md
+          fi
 
   npm:
     name: npm Publish
@@ -125,9 +130,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
           cache: pnpm
+
+      - name: Update npm
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -136,7 +144,7 @@ jobs:
         run: pnpm run build
 
       - name: Publish package
-        run: pnpm --filter @0xdoublesharp/doublcov publish --access public --provenance --no-git-checks
+        run: npm publish ./packages/cli --access public --provenance --ignore-scripts
 
   container:
     name: Container Image

@@ -2,7 +2,7 @@
   "name": "doublcov-workspace",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.25.0",
+  "packageManager": "pnpm@10.33.2",
   "scripts": {
     "build": "pnpm -r --sort run build && pnpm --filter @0xdoublesharp/doublcov run bundle:web",
     "binary": "node scripts/build-binary.mjs",

@@ -22,7 +22,7 @@ Tagged `v*` pushes trigger [`.github/workflows/release.yml`](../.github/workflow
 1. **`verify`** — `pnpm run verify:publish` (build + typecheck + tests + npm-pack smoke).
 2. **`binary`** — matrix across `linux-x64`, `linux-arm64`, `macos-x64`, `macos-arm64`, `windows-x64`. Each runner builds its native standalone binary.
 3. **`github-release`** — collects binary artifacts, generates `SHA256SUMS`, creates the GitHub Release with notes from `CHANGELOG.md`.
-4. **`npm`** — publishes `@0xdoublesharp/doublcov` with `--access public --provenance`.
+4. **`npm`** — installs the latest npm CLI and publishes `@0xdoublesharp/doublcov` with trusted-publishing provenance.
 5. **`container`** — builds and pushes the multi-arch image to GHCR.
 
 Pull requests and `main` pushes run [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (`verify:publish` only, no artifacts).
@@ -32,11 +32,11 @@ Pull requests and `main` pushes run [`.github/workflows/ci.yml`](../.github/work
 ```bash
 pnpm install --frozen-lockfile
 pnpm run verify:publish
-pnpm --filter @0xdoublesharp/doublcov publish --access public --dry-run
+npm publish ./packages/cli --access public --dry-run --ignore-scripts
 pnpm run build:binary   # produces packages/cli/dist/bin/<host-binary>
 ```
 
-`prepublishOnly` re-runs `verify:publish`, so the publish step can be invoked safely. Never run `publish` without `--dry-run` from a workstation — provenance must be signed by GitHub Actions.
+The release workflow runs `verify:publish` before publishing, then uses `npm publish` from GitHub Actions so npm trusted publishing can exchange the workflow OIDC token for a short-lived publish token. Never run `publish` without `--dry-run` from a workstation for a real release — provenance must be signed by GitHub Actions.
 
 ## Artifact Details
 
