@@ -6,7 +6,7 @@ export {
   isCoverageThemeToken,
   isSafeThemeTokenValue,
   sanitizeCoverageHref,
-  sanitizeCoverageReportCustomization
+  sanitizeCoverageReportCustomization,
 } from "./customization.js";
 export {
   DIAGNOSTIC_PARSERS,
@@ -14,7 +14,7 @@ export {
   parseFoundryBytecodeReport,
   parseFoundryDebugReport,
   registerDiagnosticParser,
-  resolveDiagnosticParser
+  resolveDiagnosticParser,
 } from "./diagnostics.js";
 export {
   DEFAULT_SOURCE_EXTENSIONS,
@@ -24,7 +24,7 @@ export {
   registerLanguageDefinition,
   resolveLanguageDefinition,
   sourceExtensionsForLanguages,
-  sourceLanguageLabel
+  sourceLanguageLabel,
 } from "./languages.js";
 export { parseLcov } from "./lcov.js";
 export type * from "./types.js";

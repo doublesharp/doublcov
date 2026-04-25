@@ -6,13 +6,20 @@ import { pathToFileURL } from "node:url";
 
 export type BrowserOpenCommand = { command: string; args: string[] };
 
-export function browserOpenCommand(target: string, os = platform()): BrowserOpenCommand {
+export function browserOpenCommand(
+  target: string,
+  os = platform(),
+): BrowserOpenCommand {
   if (os === "darwin") return { command: "open", args: [target] };
-  if (os === "win32") return { command: "cmd", args: ["/c", "start", "", target] };
+  if (os === "win32")
+    return { command: "cmd", args: ["/c", "start", "", target] };
   return { command: "xdg-open", args: [target] };
 }
 
-export async function openReport(reportDir: string, _port?: number): Promise<void> {
+export async function openReport(
+  reportDir: string,
+  _port?: number,
+): Promise<void> {
   const root = await fs.realpath(path.resolve(reportDir));
   const indexPath = path.join(root, "index.html");
   await fs.access(indexPath);
@@ -25,10 +32,12 @@ function launchBrowser(target: string): void {
   const opener = browserOpenCommand(target);
   const child = spawn(opener.command, opener.args, {
     detached: true,
-    stdio: "ignore"
+    stdio: "ignore",
   });
   child.on("error", (error) => {
-    process.stderr.write(`Could not open browser automatically: ${error.message}\n`);
+    process.stderr.write(
+      `Could not open browser automatically: ${error.message}\n`,
+    );
   });
   child.unref();
 }

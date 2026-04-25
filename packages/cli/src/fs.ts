@@ -2,7 +2,14 @@ import { sourceExtensionsForLanguages } from "@0xdoublesharp/doublcov-core";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-const ignoredAtAnyDepth = new Set([".git", ".hg", ".svn", ".doublcov", ".coverage", "node_modules"]);
+const ignoredAtAnyDepth = new Set([
+  ".git",
+  ".hg",
+  ".svn",
+  ".doublcov",
+  ".coverage",
+  "node_modules",
+]);
 const ignoredAtRoot = new Set(["coverage", "dist", "target"]);
 
 export interface ReadSourceFilesOptions {
@@ -11,7 +18,9 @@ export interface ReadSourceFilesOptions {
   includePaths?: string[];
 }
 
-export async function readTextIfPresent(filePath: string | undefined): Promise<string | undefined> {
+export async function readTextIfPresent(
+  filePath: string | undefined,
+): Promise<string | undefined> {
   if (!filePath) return undefined;
   try {
     return await fs.readFile(filePath, "utf8");
@@ -21,7 +30,9 @@ export async function readTextIfPresent(filePath: string | undefined): Promise<s
   }
 }
 
-export async function readJsonIfPresent<T>(filePath: string | undefined): Promise<T | undefined> {
+export async function readJsonIfPresent<T>(
+  filePath: string | undefined,
+): Promise<T | undefined> {
   if (!filePath) return undefined;
   try {
     return JSON.parse(await fs.readFile(filePath, "utf8")) as T;
@@ -31,12 +42,18 @@ export async function readJsonIfPresent<T>(filePath: string | undefined): Promis
   }
 }
 
-export async function writeJson(filePath: string, value: unknown): Promise<void> {
+export async function writeJson(
+  filePath: string,
+  value: unknown,
+): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-export async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
+export async function writeJsonAtomic(
+  filePath: string,
+  value: unknown,
+): Promise<void> {
   const dir = path.dirname(filePath);
   await fs.mkdir(dir, { recursive: true });
   const suffix = `${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 10)}`;
@@ -52,13 +69,20 @@ export async function writeJsonAtomic(filePath: string, value: unknown): Promise
 
 export async function readSourceFiles(
   inputs: string[],
-  options: ReadSourceFilesOptions = {}
+  options: ReadSourceFilesOptions = {},
 ): Promise<Array<{ path: string; content: string }>> {
   const root = options.root ?? process.cwd();
-  const extensions = new Set((options.extensions ?? sourceExtensionsForLanguages()).map(normalizeExtension));
+  const extensions = new Set(
+    (options.extensions ?? sourceExtensionsForLanguages()).map(
+      normalizeExtension,
+    ),
+  );
   const sourceRoots = new Set(inputs.map((input) => path.resolve(root, input)));
   const inputFiles = await collectFiles([...sourceRoots], sourceRoots, root);
-  const includedFiles = await collectExistingFiles(options.includePaths ?? [], root);
+  const includedFiles = await collectExistingFiles(
+    options.includePaths ?? [],
+    root,
+  );
   const files = [...new Set([...inputFiles, ...includedFiles])];
 
   return Promise.all(
@@ -67,17 +91,24 @@ export async function readSourceFiles(
       .sort()
       .map(async (file) => ({
         path: formatSourcePath(file, root),
-        content: await fs.readFile(file, "utf8")
-      }))
+        content: await fs.readFile(file, "utf8"),
+      })),
   );
 }
 
-export async function copyDirectory(source: string, destination: string): Promise<void> {
+export async function copyDirectory(
+  source: string,
+  destination: string,
+): Promise<void> {
   await fs.mkdir(destination, { recursive: true });
   await fs.cp(source, destination, { recursive: true });
 }
 
-async function collectFiles(inputs: string[], sourceRoots: Set<string>, root: string): Promise<string[]> {
+async function collectFiles(
+  inputs: string[],
+  sourceRoots: Set<string>,
+  root: string,
+): Promise<string[]> {
   const found: string[] = [];
   for (const input of inputs) {
     let stat;
@@ -92,12 +123,13 @@ async function collectFiles(inputs: string[], sourceRoots: Set<string>, root: st
       const isExplicitRoot = sourceRoots.has(input);
       const isTopLevelDirectory = path.dirname(input) === root;
       if (ignoredAtAnyDepth.has(basename) && !isExplicitRoot) continue;
-      if (ignoredAtRoot.has(basename) && !isExplicitRoot && isTopLevelDirectory) continue;
+      if (ignoredAtRoot.has(basename) && !isExplicitRoot && isTopLevelDirectory)
+        continue;
       const entries = await fs.readdir(input);
       const nested = await collectFiles(
         entries.map((entry) => path.join(input, entry)),
         sourceRoots,
-        root
+        root,
       );
       found.push(...nested);
     } else {
@@ -107,10 +139,15 @@ async function collectFiles(inputs: string[], sourceRoots: Set<string>, root: st
   return found;
 }
 
-async function collectExistingFiles(filePaths: string[], root: string): Promise<string[]> {
+async function collectExistingFiles(
+  filePaths: string[],
+  root: string,
+): Promise<string[]> {
   const found: string[] = [];
   for (const filePath of filePaths) {
-    const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(root, filePath);
+    const absolutePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(root, filePath);
     try {
       const stat = await fs.stat(absolutePath);
       if (stat.isFile()) found.push(absolutePath);
@@ -129,6 +166,7 @@ function normalizeExtension(extension: string): string {
 
 function formatSourcePath(filePath: string, root: string): string {
   const relative = path.relative(root, filePath);
-  const isInsideRoot = relative && !relative.startsWith("..") && !path.isAbsolute(relative);
+  const isInsideRoot =
+    relative && !relative.startsWith("..") && !path.isAbsolute(relative);
   return (isInsideRoot ? relative : filePath).replaceAll(path.sep, "/");
 }

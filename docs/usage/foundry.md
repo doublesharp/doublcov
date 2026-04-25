@@ -31,7 +31,7 @@ npx @0xdoublesharp/doublcov forge
 doublcov forge -- --exclude-tests --ir-minimum
 ```
 
-This runs `forge coverage`, writes the report to `coverage/report`, and updates history at `.doublcov/history.json`.
+This runs `forge coverage`, writes LCOV to `coverage/lcov.info`, writes the report to `coverage/report`, updates history at `.doublcov/history.json`, and opens the report locally.
 
 ## Passing arguments to forge
 
@@ -56,19 +56,21 @@ doublcov forge \
 {
   "scripts": {
     "coverage": "doublcov forge -- --exclude-tests --ir-minimum",
-    "coverage:open": "doublcov forge --open -- --exclude-tests --ir-minimum"
+    "coverage:ci": "doublcov forge --no-open -- --exclude-tests --ir-minimum"
   }
 }
 ```
 
+Doublcov also reads `[profile.default] src` and `[profile.default.doublcov]` defaults from `foundry.toml`.
+
 ## Manual LCOV path
 
-If you already produce `lcov.info` from `forge coverage`:
+If you already produce `coverage/lcov.info` from `forge coverage`:
 
 ```bash
-forge coverage --report lcov --report-file lcov.info
+forge coverage --report lcov --report-file coverage/lcov.info
 doublcov build \
-  --lcov lcov.info \
+  --lcov coverage/lcov.info \
   --sources src \
   --out coverage/report
 ```

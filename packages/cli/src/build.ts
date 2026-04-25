@@ -6,14 +6,21 @@ import {
   type CoverageReport,
   type CoverageReportCustomization,
   type CoverageRun,
-  type SourceFilePayload
+  type SourceFilePayload,
 } from "@0xdoublesharp/doublcov-core";
 import { promises as fs } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BuildOptions, DiagnosticFileOption } from "./args.js";
-import { copyDirectory, readJsonIfPresent, readSourceFiles, readTextIfPresent, writeJson, writeJsonAtomic } from "./fs.js";
+import {
+  copyDirectory,
+  readJsonIfPresent,
+  readSourceFiles,
+  readTextIfPresent,
+  writeJson,
+  writeJsonAtomic,
+} from "./fs.js";
 import { readGitMetadata } from "./git.js";
 
 const currentFile = getCurrentFile();
@@ -33,30 +40,43 @@ export interface BuildReportResult {
 
 export interface ReportConfig {
   customization?: CoverageReportCustomization;
+  lcov?: string;
+  sources?: string[];
+  sourceExtensions?: string[];
+  out?: string;
+  history?: string;
   open?: boolean;
+  name?: string;
 }
 
-export async function buildReport(options: BuildOptions): Promise<BuildReportResult> {
-  const outDir = path.resolve(options.out);
+export async function buildReport(
+  options: BuildOptions,
+): Promise<BuildReportResult> {
   const webAssets = await resolveWebAssets();
-  const [lcov, diagnosticInputs, config, historyRaw] = await Promise.all([
-    readTextIfPresent(options.lcov),
+  const [diagnosticInputs, config] = await Promise.all([
     readDiagnosticInputs(options.diagnostics),
     readReportConfig(options.customization),
-    readJsonIfPresent<unknown>(options.history)
+  ]);
+  const resolvedOptions = resolveBuildOptions(options, config);
+  const outDir = path.resolve(resolvedOptions.out);
+  const [lcov, historyRaw] = await Promise.all([
+    readTextIfPresent(resolvedOptions.lcov),
+    readJsonIfPresent<unknown>(resolvedOptions.history),
   ]);
   const history = sanitizeHistory(historyRaw);
   const open = resolveAutoOpen(options.open, config);
 
-  if (!lcov) throw new Error(`Could not read LCOV file at ${options.lcov}.`);
+  if (!lcov)
+    throw new Error(`Could not read LCOV file at ${resolvedOptions.lcov}.`);
   const lcovSourcePaths = parseLcov(lcov).map((record) => record.sourceFile);
-  const sourceFiles = await readSourceFiles(options.sources, {
-    extensions: options.sourceExtensions,
-    includePaths: lcovSourcePaths
+  const sourceFiles = await readSourceFiles(resolvedOptions.sources, {
+    extensions: resolvedOptions.sourceExtensions,
+    includePaths: lcovSourcePaths,
   });
 
   const git = readGitMetadata();
-  const projectName = options.name ?? (await inferProjectName(process.cwd()));
+  const projectName =
+    resolvedOptions.name ?? (await inferProjectName(process.cwd()));
   const bundle = buildCoverageBundle({
     lcov,
     sourceFiles,
@@ -66,48 +86,150 @@ export async function buildReport(options: BuildOptions): Promise<BuildReportRes
     projectRoot: process.cwd(),
     ...(history ? { history } : {}),
     ...(git.commit ? { commit: git.commit } : {}),
-    ...(git.branch ? { branch: git.branch } : {})
+    ...(git.branch ? { branch: git.branch } : {}),
   });
 
   await copyWebAssets(webAssets, outDir);
   await writeJson(path.join(outDir, "data", "report.json"), bundle.report);
-  await writeJson(path.join(outDir, "data", "history.json"), bundle.report.history);
+  await writeJson(
+    path.join(outDir, "data", "history.json"),
+    bundle.report.history,
+  );
   await Promise.all(
-    bundle.sourcePayloads.map((payload) => writeJson(path.join(outDir, "data", "files", `${payload.id}.json`), payload))
+    bundle.sourcePayloads.map((payload) =>
+      writeJson(
+        path.join(outDir, "data", "files", `${payload.id}.json`),
+        payload,
+      ),
+    ),
   );
   await makeIndexHtmlStandalone(outDir, bundle.report, bundle.sourcePayloads);
-  if (options.history) await writeJsonAtomic(path.resolve(options.history), bundle.report.history);
+  if (resolvedOptions.history)
+    await writeJsonAtomic(
+      path.resolve(resolvedOptions.history),
+      bundle.report.history,
+    );
 
-  process.stdout.write(
-    `Generated ${bundle.report.files.length} file report with ${bundle.report.uncoveredItems.length} uncovered items at ${outDir}\n`
-  );
+  process.stdout.write(formatGeneratedReportMessage(bundle.report, outDir));
   return { outDir, open };
 }
 
+export function resolveBuildOptions(
+  options: BuildOptions,
+  config: ReportConfig,
+): BuildOptions {
+  const name = options.explicit?.name
+    ? options.name
+    : (config.name ?? options.name);
+  return {
+    ...options,
+    lcov: options.explicit?.lcov ? options.lcov : (config.lcov ?? options.lcov),
+    sources: options.explicit?.sources
+      ? options.sources
+      : (config.sources ?? options.sources),
+    sourceExtensions: options.explicit?.sourceExtensions
+      ? options.sourceExtensions
+      : (config.sourceExtensions ?? options.sourceExtensions),
+    out: options.explicit?.out ? options.out : (config.out ?? options.out),
+    history: options.explicit?.history
+      ? options.history
+      : (config.history ?? options.history),
+    ...(name ? { name } : {}),
+  };
+}
+
 export async function readReportConfig(
-  customization: BuildOptions["customization"]
+  customization: BuildOptions["customization"],
 ): Promise<ReportConfig> {
   if (!customization) return {};
   const parsed = await readJsonIfPresent<unknown>(customization.path);
   if (parsed === undefined && customization.required) {
-    throw new Error(`Could not read customization file at ${customization.path}.`);
+    throw new Error(
+      `Could not read customization file at ${customization.path}.`,
+    );
   }
   const base = isRecord(parsed) ? parsed : {};
   const withTheme = customization.defaultTheme
     ? { ...base, defaultTheme: customization.defaultTheme }
     : base;
-  const sanitizedCustomization = Object.keys(withTheme).length > 0 ? sanitizeCustomization(withTheme) : undefined;
+  const sanitizedCustomization =
+    Object.keys(withTheme).length > 0
+      ? sanitizeCustomization(withTheme)
+      : undefined;
   return {
-    ...(sanitizedCustomization ? { customization: sanitizedCustomization } : {}),
-    ...(typeof base.open === "boolean" ? { open: base.open } : {})
+    ...(sanitizedCustomization
+      ? { customization: sanitizedCustomization }
+      : {}),
+    ...sanitizeReportConfigFields(base),
   };
 }
 
-export function resolveAutoOpen(optionOpen: boolean | undefined, config: ReportConfig): boolean {
-  return optionOpen ?? config.open ?? false;
+export function sanitizeReportConfigFields(
+  input: Record<string, unknown>,
+): Omit<ReportConfig, "customization"> {
+  const config: Omit<ReportConfig, "customization"> = {};
+  if (typeof input.lcov === "string") config.lcov = input.lcov;
+  if (typeof input.out === "string") config.out = input.out;
+  if (typeof input.history === "string") config.history = input.history;
+  if (typeof input.name === "string") config.name = input.name;
+  if (typeof input.open === "boolean") config.open = input.open;
+  const sources = sanitizeStringList(input.sources);
+  if (sources) config.sources = sources;
+  const extensions = sanitizeStringList(input.extensions);
+  if (extensions) config.sourceExtensions = normalizeExtensions(extensions);
+  const sourceExtensions = sanitizeStringList(input.sourceExtensions);
+  if (sourceExtensions)
+    config.sourceExtensions = normalizeExtensions(sourceExtensions);
+  return config;
 }
 
-export function sanitizeCustomization(input: unknown): CoverageReportCustomization | undefined {
+export function resolveAutoOpen(
+  optionOpen: boolean | undefined,
+  config: ReportConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (optionOpen !== undefined) return optionOpen;
+  if (isCiEnvironment(env)) return false;
+  return config.open ?? true;
+}
+
+export function isCiEnvironment(env: NodeJS.ProcessEnv = process.env): boolean {
+  return isTruthyEnv(env.CI) || isTruthyEnv(env.GITHUB_ACTIONS);
+}
+
+function isTruthyEnv(value: string | undefined): boolean {
+  if (value === undefined) return false;
+  return value !== "" && value !== "0" && value.toLowerCase() !== "false";
+}
+
+export function sanitizeStringList(input: unknown): string[] | undefined {
+  if (typeof input === "string") {
+    const values = input
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return values.length ? values : undefined;
+  }
+  if (!Array.isArray(input)) return undefined;
+  const values = input.filter(
+    (value): value is string =>
+      typeof value === "string" && value.trim().length > 0,
+  );
+  return values.length ? values.map((value) => value.trim()) : undefined;
+}
+
+export function normalizeExtensions(extensions: string[]): string[] {
+  return extensions
+    .map((extension) => extension.trim())
+    .filter(Boolean)
+    .map((extension) =>
+      extension.startsWith(".") ? extension : `.${extension}`,
+    );
+}
+
+export function sanitizeCustomization(
+  input: unknown,
+): CoverageReportCustomization | undefined {
   return sanitizeCoverageReportCustomization(input);
 }
 
@@ -117,24 +239,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function sanitizeHistory(input: unknown): CoverageHistory | undefined {
   if (!isRecord(input) || !Array.isArray(input.runs)) return undefined;
-  const runs = input.runs.map(sanitizeRun).filter((run): run is CoverageRun => run !== null);
+  const runs = input.runs
+    .map(sanitizeRun)
+    .filter((run): run is CoverageRun => run !== null);
   const schemaVersion = input.schemaVersion === 1 ? 1 : 1;
   return { schemaVersion, runs };
 }
 
 function sanitizeRun(input: unknown): CoverageRun | null {
   if (!isRecord(input)) return null;
-  if (typeof input.id !== "string" || typeof input.timestamp !== "string") return null;
+  if (typeof input.id !== "string" || typeof input.timestamp !== "string")
+    return null;
   const totals = sanitizeRunTotals(input.totals);
   if (!totals) return null;
-  const files = Array.isArray(input.files) ? input.files.map(sanitizeRunFile).filter((file): file is CoverageRun["files"][number] => file !== null) : [];
+  const files = Array.isArray(input.files)
+    ? input.files
+        .map(sanitizeRunFile)
+        .filter((file): file is CoverageRun["files"][number] => file !== null)
+    : [];
   return {
     id: input.id,
     timestamp: input.timestamp,
     totals,
     files,
     ...(typeof input.commit === "string" ? { commit: input.commit } : {}),
-    ...(typeof input.branch === "string" ? { branch: input.branch } : {})
+    ...(typeof input.branch === "string" ? { branch: input.branch } : {}),
   };
 }
 
@@ -147,10 +276,17 @@ function sanitizeRunTotals(input: unknown): CoverageRun["totals"] | null {
   return { lines, functions, branches };
 }
 
-function sanitizeTotals(input: unknown): { found: number; hit: number; percent: number } | null {
+function sanitizeTotals(
+  input: unknown,
+): { found: number; hit: number; percent: number } | null {
   if (!isRecord(input)) return null;
   const { found, hit, percent } = input;
-  if (typeof found !== "number" || typeof hit !== "number" || typeof percent !== "number") return null;
+  if (
+    typeof found !== "number" ||
+    typeof hit !== "number" ||
+    typeof percent !== "number"
+  )
+    return null;
   return { found, hit, percent };
 }
 
@@ -163,14 +299,15 @@ function sanitizeRunFile(input: unknown): CoverageRun["files"][number] | null {
   const uncovered = isRecord(input.uncovered) ? input.uncovered : {};
   const counts = {
     lines: typeof uncovered.lines === "number" ? uncovered.lines : 0,
-    functions: typeof uncovered.functions === "number" ? uncovered.functions : 0,
-    branches: typeof uncovered.branches === "number" ? uncovered.branches : 0
+    functions:
+      typeof uncovered.functions === "number" ? uncovered.functions : 0,
+    branches: typeof uncovered.branches === "number" ? uncovered.branches : 0,
   };
   return { path: input.path, lines, functions, branches, uncovered: counts };
 }
 
 async function readDiagnosticInputs(
-  diagnostics: DiagnosticFileOption[]
+  diagnostics: DiagnosticFileOption[],
 ): Promise<Array<{ parser: string; content: string }>> {
   return (
     await Promise.all(
@@ -179,22 +316,31 @@ async function readDiagnosticInputs(
         if (!content) return null;
         return {
           parser: diagnostic.parser,
-          content
+          content,
         };
-      })
+      }),
     )
-  ).filter((diagnostic): diagnostic is { parser: string; content: string } => diagnostic !== null);
+  ).filter(
+    (diagnostic): diagnostic is { parser: string; content: string } =>
+      diagnostic !== null,
+  );
 }
 
 async function inferProjectName(projectRoot: string): Promise<string> {
-  const packageJsonName = await readPackageName(path.join(projectRoot, "package.json"));
+  const packageJsonName = await readPackageName(
+    path.join(projectRoot, "package.json"),
+  );
   if (packageJsonName) return packageJsonName;
   return path.basename(projectRoot);
 }
 
-async function readPackageName(packageJsonPath: string): Promise<string | undefined> {
+async function readPackageName(
+  packageJsonPath: string,
+): Promise<string | undefined> {
   try {
-    const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8")) as { name?: unknown };
+    const packageJson = JSON.parse(
+      await fs.readFile(packageJsonPath, "utf8"),
+    ) as { name?: unknown };
     return typeof packageJson.name === "string" && packageJson.name.trim()
       ? packageJson.name.trim()
       : undefined;
@@ -209,7 +355,7 @@ async function resolveWebAssets(): Promise<string> {
 
   const candidates = [
     path.resolve(currentDir, "web"),
-    path.resolve(currentDir, "../../../apps/web/dist")
+    path.resolve(currentDir, "../../../apps/web/dist"),
   ];
 
   for (const candidate of candidates) {
@@ -225,8 +371,8 @@ async function resolveWebAssets(): Promise<string> {
     [
       "Web assets are missing.",
       "For local unpublished use, run `pnpm run build` from the doublcov workspace before running this CLI.",
-      `Checked: ${candidates.join(", ")}`
-    ].join(" ")
+      `Checked: ${candidates.join(", ")}`,
+    ].join(" "),
   );
 }
 
@@ -238,7 +384,8 @@ async function copyWebAssets(webAssets: string, outDir: string): Promise<void> {
   }
 
   const sea = getSeaApi();
-  if (!sea?.getAsset) throw new Error("SEA web assets were detected but could not be read.");
+  if (!sea?.getAsset)
+    throw new Error("SEA web assets were detected but could not be read.");
 
   await fs.mkdir(outDir, { recursive: true });
   await Promise.all(
@@ -246,16 +393,21 @@ async function copyWebAssets(webAssets: string, outDir: string): Promise<void> {
       const relativePath = key.slice("web/".length);
       const asset = sea.getAsset?.(key);
       if (asset === undefined) throw new Error(`Missing SEA asset ${key}.`);
-      await fs.mkdir(path.dirname(path.join(outDir, relativePath)), { recursive: true });
-      await fs.writeFile(path.join(outDir, relativePath), typeof asset === "string" ? asset : Buffer.from(asset));
-    })
+      await fs.mkdir(path.dirname(path.join(outDir, relativePath)), {
+        recursive: true,
+      });
+      await fs.writeFile(
+        path.join(outDir, relativePath),
+        typeof asset === "string" ? asset : Buffer.from(asset),
+      );
+    }),
   );
 }
 
 async function makeIndexHtmlStandalone(
   outDir: string,
   report: CoverageReport,
-  sourcePayloads: SourceFilePayload[]
+  sourcePayloads: SourceFilePayload[],
 ): Promise<void> {
   const indexPath = path.join(outDir, "index.html");
   let html = await fs.readFile(indexPath, "utf8");
@@ -264,15 +416,24 @@ async function makeIndexHtmlStandalone(
   await fs.writeFile(indexPath, html, "utf8");
 }
 
-async function inlineStylesheets(html: string, outDir: string): Promise<string> {
+async function inlineStylesheets(
+  html: string,
+  outDir: string,
+): Promise<string> {
   let nextHtml = html;
-  const stylesheetTags = [...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)];
+  const stylesheetTags = [
+    ...html.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g),
+  ];
   for (const match of stylesheetTags) {
     const tag = match[0];
     const href = tag.match(/\bhref="([^"]+)"/)?.[1];
     if (!href) continue;
     const css = await fs.readFile(resolveOutputAssetPath(outDir, href), "utf8");
-    nextHtml = replaceLiteralOnce(nextHtml, tag, `<style>\n${escapeHtmlRawText(css, "style")}\n</style>`);
+    nextHtml = replaceLiteralOnce(
+      nextHtml,
+      tag,
+      `<style>\n${escapeHtmlRawText(css, "style")}\n</style>`,
+    );
   }
   return nextHtml;
 }
@@ -281,26 +442,30 @@ async function inlineModuleScript(
   html: string,
   outDir: string,
   report: CoverageReport,
-  sourcePayloads: SourceFilePayload[]
+  sourcePayloads: SourceFilePayload[],
 ): Promise<string> {
-  const match = html.match(/<script\b[^>]*type="module"[^>]*src="([^"]+)"[^>]*><\/script>/);
+  const match = html.match(
+    /<script\b[^>]*type="module"[^>]*src="([^"]+)"[^>]*><\/script>/,
+  );
   if (!match?.[0] || !match[1]) return html;
 
-  const js = stripSourceMapComment(await fs.readFile(resolveOutputAssetPath(outDir, match[1]), "utf8"));
+  const js = stripSourceMapComment(
+    await fs.readFile(resolveOutputAssetPath(outDir, match[1]), "utf8"),
+  );
   const embeddedData = [
     `<script type="application/json" id="doublcov-report-data">${escapeJsonForHtml(JSON.stringify(report))}</script>`,
-    `<script type="application/json" id="doublcov-source-data">${escapeJsonForHtml(JSON.stringify(sourcePayloadsByPath(report, sourcePayloads)))}</script>`
+    `<script type="application/json" id="doublcov-source-data">${escapeJsonForHtml(JSON.stringify(sourcePayloadsByPath(report, sourcePayloads)))}</script>`,
   ].join("\n");
   return replaceLiteralOnce(
     html,
     match[0],
-    `${embeddedData}\n<script type="module">\n${escapeHtmlRawText(js, "script")}\n</script>`
+    `${embeddedData}\n<script type="module">\n${escapeHtmlRawText(js, "script")}\n</script>`,
   );
 }
 
 function sourcePayloadsByPath(
   report: CoverageReport,
-  sourcePayloads: SourceFilePayload[]
+  sourcePayloads: SourceFilePayload[],
 ): Record<string, SourceFilePayload> {
   const byId = new Map(sourcePayloads.map((payload) => [payload.id, payload]));
   const byPath: Record<string, SourceFilePayload> = {};
@@ -328,12 +493,35 @@ export function escapeJsonForHtml(json: string): string {
     .replace(/\u2029/g, "\\u2029");
 }
 
-export function replaceLiteralOnce(input: string, search: string, replacement: string): string {
+export function replaceLiteralOnce(
+  input: string,
+  search: string,
+  replacement: string,
+): string {
   return input.replace(search, () => replacement);
 }
 
-function escapeHtmlRawText(text: string, elementName: "script" | "style"): string {
-  return text.replace(new RegExp(`</${elementName}`, "gi"), `<\\/${elementName}`);
+export function formatGeneratedReportMessage(
+  report: CoverageReport,
+  outDir: string,
+): string {
+  const indexPath = path.join(outDir, "index.html");
+  return (
+    [
+      `Generated ${report.files.length} file report with ${report.uncoveredItems.length} uncovered items at ${outDir}`,
+      `Open report: ${indexPath}`,
+    ].join("\n") + "\n"
+  );
+}
+
+function escapeHtmlRawText(
+  text: string,
+  elementName: "script" | "style",
+): string {
+  return text.replace(
+    new RegExp(`</${elementName}`, "gi"),
+    `<\\/${elementName}`,
+  );
 }
 
 function getSeaWebAssetKeys(): string[] {
@@ -342,11 +530,19 @@ function getSeaWebAssetKeys(): string[] {
 
   try {
     const manifest = sea.getAsset(SEA_WEB_MANIFEST, "utf8");
-    const text = typeof manifest === "string" ? manifest : Buffer.from(manifest).toString("utf8");
+    const text =
+      typeof manifest === "string"
+        ? manifest
+        : Buffer.from(manifest).toString("utf8");
     const keys = JSON.parse(text) as unknown;
     if (!Array.isArray(keys)) return [];
     return keys
-      .filter((key): key is string => typeof key === "string" && key.startsWith("web/") && key !== SEA_WEB_MANIFEST)
+      .filter(
+        (key): key is string =>
+          typeof key === "string" &&
+          key.startsWith("web/") &&
+          key !== SEA_WEB_MANIFEST,
+      )
       .sort();
   } catch {
     return [];

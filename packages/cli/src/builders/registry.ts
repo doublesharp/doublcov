@@ -18,25 +18,32 @@ export const coverageBuilders: CoverageBuilderPlugin[] = [
   pytestBuilder,
   cargoLlvmCovBuilder,
   cargoTarpaulinBuilder,
-  lcovCaptureBuilder
+  lcovCaptureBuilder,
 ];
 
 const buildersByName = new Map<string, CoverageBuilderPlugin>(
-  coverageBuilders.flatMap((builder) => [[builder.id, builder], ...builder.aliases.map((alias) => [alias, builder] as const)])
+  coverageBuilders.flatMap((builder) => [
+    [builder.id, builder],
+    ...builder.aliases.map((alias) => [alias, builder] as const),
+  ]),
 );
 
 export function registerCoverageBuilder(builder: CoverageBuilderPlugin): void {
   for (const name of [builder.id, ...builder.aliases]) {
     const conflict = coverageBuilders.find(
-      (candidate) => candidate.id !== builder.id && (candidate.id === name || candidate.aliases.includes(name))
+      (candidate) =>
+        candidate.id !== builder.id &&
+        (candidate.id === name || candidate.aliases.includes(name)),
     );
     if (conflict) {
       throw new Error(
-        `Coverage builder "${builder.id}" cannot register name "${name}" because it conflicts with builder "${conflict.id}".`
+        `Coverage builder "${builder.id}" cannot register name "${name}" because it conflicts with builder "${conflict.id}".`,
       );
     }
   }
-  const existingIndex = coverageBuilders.findIndex((candidate) => candidate.id === builder.id);
+  const existingIndex = coverageBuilders.findIndex(
+    (candidate) => candidate.id === builder.id,
+  );
   if (existingIndex === -1) {
     coverageBuilders.push(builder);
   } else {
@@ -45,7 +52,9 @@ export function registerCoverageBuilder(builder: CoverageBuilderPlugin): void {
   rebuildBuilderIndex();
 }
 
-export function resolveBuilder(name: string): CoverageBuilderPlugin | undefined {
+export function resolveBuilder(
+  name: string,
+): CoverageBuilderPlugin | undefined {
   return buildersByName.get(name);
 }
 

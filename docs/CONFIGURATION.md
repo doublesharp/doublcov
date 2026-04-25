@@ -16,15 +16,33 @@ doublcov build \
 
 `--theme <id>` sets the default theme.
 
-`--open` opens the generated report after a build. `--no-open` disables config-driven auto-open for that run.
+Local builds open the generated report by default. CI and the GitHub Action default to `--no-open`. Use `--open` or `--no-open` to override that behavior for a single run.
 
-Doublcov automatically attempts to load `doublcov.config.json` from the current working directory. If the default file is absent, the build continues without customization. If the default file is present, report customization is embedded into the generated report.
+Doublcov automatically attempts to load `doublcov.config.json` from the current working directory. If the default file is absent, the build continues without customization. Theme and hook customization from the config is embedded into the generated report; workflow fields such as `lcov`, `out`, `history`, `name`, and `open` only affect the CLI run.
+
+## Default Precedence
+
+For builder commands such as `doublcov forge`, `doublcov hardhat`, and `doublcov vite`, defaults are resolved in this order:
+
+1. CLI flags such as `--lcov`, `--sources`, `--extensions`, `--out`, `--history`, and `--name`
+2. `doublcov.config.json`
+3. Builder or project config, including `package.json`, `foundry.toml`, Hardhat source paths, Jest config, Vitest config, c8 config, `.solcover.js`, and `pyproject.toml`
+4. Built-in builder defaults
+5. Generic Doublcov defaults
+
+When a builder resolves an LCOV path and no report output directory is set, Doublcov writes the static report to a `report` directory next to that LCOV file. For example, `coverage/lcov.info` produces `coverage/report`.
 
 ## Customization Shape
 
 ```json
 {
   "open": true,
+  "lcov": "coverage/lcov.info",
+  "out": "coverage/report",
+  "sources": ["src"],
+  "extensions": ["ts", "tsx", "js", "jsx"],
+  "history": ".doublcov/history.json",
+  "name": "My Project",
   "defaultTheme": "ci-dark",
   "themes": [
     {
@@ -79,7 +97,42 @@ Doublcov automatically attempts to load `doublcov.config.json` from the current 
 }
 ```
 
-`open` is a CLI workflow setting only. It is not embedded into the report JSON.
+## package.json
+
+Node projects can put shared defaults in `package.json`:
+
+```json
+{
+  "doublcov": {
+    "out": "coverage/report",
+    "builders": {
+      "vitest": {
+        "lcov": "coverage/unit/lcov.info",
+        "sources": ["src", "packages"]
+      }
+    }
+  }
+}
+```
+
+Doublcov also reads common tool defaults from `package.json`, including `jest.coverageDirectory`, `vitest.coverage.reportsDirectory`, and `c8.report-dir`.
+
+## Native Project Config
+
+Foundry projects can set Doublcov defaults in `foundry.toml`:
+
+```toml
+[profile.default]
+src = "contracts"
+
+[profile.default.doublcov]
+lcov = "coverage/foundry/lcov.info"
+out = "coverage/foundry/report"
+```
+
+Hardhat config files are executable JavaScript or TypeScript, so Doublcov reads only simple static defaults without importing the config. It detects `paths.sources`, a simple `doublcov: { ... }` object, and `.solcover.js` `coverageDir` or `coverageDirectory` values. For complex Hardhat configs, prefer `package.json` or `doublcov.config.json`.
+
+`lcov`, `out`, `history`, `name`, and `open` are CLI workflow settings only. They are not embedded into the report JSON.
 
 ## Theme Tokens
 

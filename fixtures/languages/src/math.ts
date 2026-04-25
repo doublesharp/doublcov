@@ -5,4 +5,3 @@ export function add(left: number, right: number): number {
 export function maybeDouble(value: number, enabled: boolean): number {
   return enabled ? value * 2 : value;
 }
-

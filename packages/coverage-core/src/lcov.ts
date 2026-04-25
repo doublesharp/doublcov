@@ -84,7 +84,11 @@ export function parseLcov(input: string): LcovRecord[] {
       case "BRDA": {
         const [lineNumber, block, branch, taken] = value.split(",");
         const parsedLine = Number(lineNumber);
-        if (Number.isFinite(parsedLine) && block !== undefined && branch !== undefined) {
+        if (
+          Number.isFinite(parsedLine) &&
+          block !== undefined &&
+          branch !== undefined
+        ) {
           const parsedTaken = parseBrdaTaken(taken);
           if (parsedTaken !== INVALID_TAKEN) {
             current.branches.push({
@@ -92,7 +96,7 @@ export function parseLcov(input: string): LcovRecord[] {
               line: parsedLine,
               block,
               branch,
-              taken: parsedTaken
+              taken: parsedTaken,
             });
           }
         }
@@ -108,7 +112,10 @@ export function parseLcov(input: string): LcovRecord[] {
   return records;
 }
 
-function flushPendingHits(record: LcovRecord, pendingHits: Map<string, number>): void {
+function flushPendingHits(
+  record: LcovRecord,
+  pendingHits: Map<string, number>,
+): void {
   for (const [name, hits] of pendingHits) {
     record.functions.push({ name, line: 1, hits });
   }
@@ -124,23 +131,25 @@ function createRecord(): LcovRecord {
     totals: {
       lines: makeTotals(0, 0),
       functions: makeTotals(0, 0),
-      branches: makeTotals(0, 0)
-    }
+      branches: makeTotals(0, 0),
+    },
   };
 }
 
 function finalizeRecord(record: LcovRecord): LcovRecord {
   const lineHits = [...record.lines.values()].filter((hits) => hits > 0).length;
   const functionHits = record.functions.filter((fn) => fn.hits > 0).length;
-  const branchHits = record.branches.filter((branch) => (branch.taken ?? 0) > 0).length;
+  const branchHits = record.branches.filter(
+    (branch) => (branch.taken ?? 0) > 0,
+  ).length;
 
   return {
     ...record,
     totals: {
       lines: makeTotals(record.lines.size, lineHits),
       functions: makeTotals(record.functions.length, functionHits),
-      branches: makeTotals(record.branches.length, branchHits)
-    }
+      branches: makeTotals(record.branches.length, branchHits),
+    },
   };
 }
 
@@ -152,7 +161,9 @@ function splitOnce(value: string, separator: string): [string, string] {
 
 const INVALID_TAKEN = Symbol("invalid-taken");
 
-function parseBrdaTaken(value: string | undefined): number | null | typeof INVALID_TAKEN {
+function parseBrdaTaken(
+  value: string | undefined,
+): number | null | typeof INVALID_TAKEN {
   if (value === undefined || value === "-") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : INVALID_TAKEN;

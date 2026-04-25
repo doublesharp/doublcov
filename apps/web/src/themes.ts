@@ -1,4 +1,8 @@
-import { COVERAGE_THEME_TOKENS, type CoverageTheme, type CoverageThemeMode } from "@0xdoublesharp/doublcov-core";
+import {
+  COVERAGE_THEME_TOKENS,
+  type CoverageTheme,
+  type CoverageThemeMode,
+} from "@0xdoublesharp/doublcov-core";
 
 export const themeTokens = COVERAGE_THEME_TOKENS;
 
@@ -31,8 +35,8 @@ export const builtInThemes: CoverageTheme[] = [
       "syn-literal": "#be123c",
       "syn-key": "#1d4ed8",
       "syn-operator": "#475569",
-      "syn-punctuation": "#64748b"
-    }
+      "syn-punctuation": "#64748b",
+    },
   },
   {
     id: "dark",
@@ -62,8 +66,8 @@ export const builtInThemes: CoverageTheme[] = [
       "syn-literal": "#fb7185",
       "syn-key": "#7dd3fc",
       "syn-operator": "#cbd5e1",
-      "syn-punctuation": "#94a3b8"
-    }
+      "syn-punctuation": "#94a3b8",
+    },
   },
   {
     id: "contrast",
@@ -82,8 +86,8 @@ export const builtInThemes: CoverageTheme[] = [
       partial: "#713f12",
       uncovered: "#7f1d1d",
       ignored: "#262626",
-      "code-bg": "#000000"
-    }
+      "code-bg": "#000000",
+    },
   },
   {
     id: "paper",
@@ -102,9 +106,9 @@ export const builtInThemes: CoverageTheme[] = [
       partial: "#fdecc8",
       uncovered: "#f8d7da",
       ignored: "#e6e3da",
-      "code-bg": "#fffefa"
-    }
-  }
+      "code-bg": "#fffefa",
+    },
+  },
 ];
 
 export function themeMode(theme: CoverageTheme | undefined): CoverageThemeMode {

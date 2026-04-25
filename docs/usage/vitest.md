@@ -31,7 +31,7 @@ pnpm add -D @0xdoublesharp/doublcov
 doublcov vite
 ```
 
-Default output: `coverage/report`.
+Default output: `coverage/report`, unless Vitest or Doublcov config resolves a different LCOV/report path. Local runs open the report by default.
 
 ## Passing arguments to vitest
 
@@ -47,10 +47,12 @@ doublcov vite -- --run --reporter verbose src/lib
 {
   "scripts": {
     "coverage": "doublcov vite",
-    "coverage:open": "doublcov vite --open"
+    "coverage:ci": "doublcov vite --no-open"
   }
 }
 ```
+
+Doublcov reads Vitest coverage defaults from `package.json` `vitest.coverage.reportsDirectory` and simple `coverage.reportsDirectory` values in `vitest.config.*` or `vite.config.*`.
 
 ## Manual LCOV path
 
@@ -79,5 +81,5 @@ doublcov build \
 ## Troubleshooting
 
 - **No coverage provider installed.** Install `@vitest/coverage-v8` or `@vitest/coverage-istanbul`. Vitest will error otherwise.
-- **`lcov.info` ends up under a nested directory.** Vitest writes `coverage/lcov.info`; if you customize `coverage.reportsDirectory`, point `--lcov` at the matching path.
+- **`lcov.info` ends up under a nested directory.** Vitest writes `coverage/lcov.info` by default. If you customize `coverage.reportsDirectory`, Doublcov will use that value when it can read it statically; otherwise pass `--lcov` explicitly.
 - **Vue, Svelte, JSX files missing from output.** Pass `--extensions ts,tsx,js,jsx,vue,svelte` to `doublcov build` when using the manual LCOV path.

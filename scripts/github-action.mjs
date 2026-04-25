@@ -13,8 +13,17 @@ const command = input("command");
 const args = parseArgs(input("args"));
 const installOnly = input("install-only").toLowerCase() === "true";
 const asset = assetName();
-const cacheDir = path.join(os.tmpdir(), "doublcov-action", sanitize(version), process.platform, process.arch);
-const executablePath = path.join(cacheDir, process.platform === "win32" ? "doublcov.exe" : "doublcov");
+const cacheDir = path.join(
+  os.tmpdir(),
+  "doublcov-action",
+  sanitize(version),
+  process.platform,
+  process.arch,
+);
+const executablePath = path.join(
+  cacheDir,
+  process.platform === "win32" ? "doublcov.exe" : "doublcov",
+);
 const baseUrl =
   version === "latest"
     ? `https://github.com/${repository}/releases/latest/download`
@@ -26,10 +35,13 @@ if (process.platform !== "win32") await chmod(executablePath, 0o755);
 await verifyChecksum(`${baseUrl}/SHA256SUMS`, executablePath, asset);
 
 await appendIfPresent(process.env.GITHUB_PATH, `${cacheDir}${os.EOL}`);
-await appendIfPresent(process.env.GITHUB_OUTPUT, `path=${executablePath}${os.EOL}`);
+await appendIfPresent(
+  process.env.GITHUB_OUTPUT,
+  `path=${executablePath}${os.EOL}`,
+);
 
 if (!installOnly) {
-  const doublcovArgs = command ? [command, ...args] : args;
+  const doublcovArgs = withCiOpenDefault(command ? [command, ...args] : args);
   await run(executablePath, doublcovArgs);
 }
 
@@ -38,15 +50,23 @@ if (!installOnly) {
  * @returns {string}
  */
 function input(name) {
-  return process.env[`INPUT_${name.toUpperCase().replaceAll("-", "_")}`]?.trim() ?? "";
+  return (
+    process.env[`INPUT_${name.toUpperCase().replaceAll("-", "_")}`]?.trim() ??
+    ""
+  );
 }
 
 /** @returns {string} */
 function assetName() {
   const platform = normalizePlatform(process.platform);
   const arch = normalizeArch(process.arch);
-  if (!platform || !arch) throw new Error(`Unsupported platform for Doublcov binary: ${process.platform}/${process.arch}`);
-  return platform === "windows" ? `doublcov-${platform}-${arch}.exe` : `doublcov-${platform}-${arch}`;
+  if (!platform || !arch)
+    throw new Error(
+      `Unsupported platform for Doublcov binary: ${process.platform}/${process.arch}`,
+    );
+  return platform === "windows"
+    ? `doublcov-${platform}-${arch}.exe`
+    : `doublcov-${platform}-${arch}`;
 }
 
 /**
@@ -77,21 +97,26 @@ function normalizeArch(value) {
  * @returns {Promise<void>}
  */
 async function download(url, destination, redirects = 0) {
-  if (redirects > 5) throw new Error(`Too many redirects while downloading ${url}`);
+  if (redirects > 5)
+    throw new Error(`Too many redirects while downloading ${url}`);
   await new Promise((resolve, reject) => {
     const request = get(
       url,
       {
         headers: {
-          "user-agent": "doublcov-github-action"
-        }
+          "user-agent": "doublcov-github-action",
+        },
       },
       (response) => {
         const statusCode = response.statusCode ?? 0;
         const redirect = response.headers.location;
         if (statusCode >= 300 && statusCode < 400 && redirect) {
           response.resume();
-          download(new URL(redirect, url).toString(), destination, redirects + 1).then(resolve, reject);
+          download(
+            new URL(redirect, url).toString(),
+            destination,
+            redirects + 1,
+          ).then(resolve, reject);
           return;
         }
         if (statusCode < 200 || statusCode >= 300) {
@@ -103,7 +128,7 @@ async function download(url, destination, redirects = 0) {
         response.pipe(file);
         file.on("finish", () => file.close(resolve));
         file.on("error", reject);
-      }
+      },
     );
     request.on("error", reject);
   });
@@ -122,11 +147,17 @@ async function verifyChecksum(checksumUrl, binaryPath, binaryAsset) {
   const line = checksums
     .split(/\r?\n/)
     .map((entry) => entry.trim())
-    .find((entry) => entry.endsWith(` ${binaryAsset}`) || entry.endsWith(` *${binaryAsset}`));
+    .find(
+      (entry) =>
+        entry.endsWith(` ${binaryAsset}`) || entry.endsWith(` *${binaryAsset}`),
+    );
   if (!line) throw new Error(`SHA256SUMS did not include ${binaryAsset}.`);
   const expected = line.split(/\s+/)[0];
-  const actual = createHash("sha256").update(await readFile(binaryPath)).digest("hex");
-  if (actual !== expected) throw new Error(`Checksum mismatch for ${binaryAsset}.`);
+  const actual = createHash("sha256")
+    .update(await readFile(binaryPath))
+    .digest("hex");
+  if (actual !== expected)
+    throw new Error(`Checksum mismatch for ${binaryAsset}.`);
 }
 
 /**
@@ -173,6 +204,28 @@ function parseArgs(value) {
 }
 
 /**
+ * @param {string[]} commandArgs
+ * @returns {string[]}
+ */
+function withCiOpenDefault(commandArgs) {
+  const commandName = commandArgs[0];
+  if (!commandName || commandName === "open" || hasOpenFlag(commandArgs))
+    return commandArgs;
+  return [commandName, "--no-open", ...commandArgs.slice(1)];
+}
+
+/**
+ * @param {string[]} commandArgs
+ * @returns {boolean}
+ */
+function hasOpenFlag(commandArgs) {
+  return commandArgs.some(
+    (arg) =>
+      arg === "--open" || arg === "--no-open" || arg.startsWith("--open="),
+  );
+}
+
+/**
  * @param {string | undefined} filePath
  * @param {string} contents
  * @returns {Promise<void>}
@@ -196,7 +249,13 @@ function run(commandPath, commandArgs) {
         resolve();
         return;
       }
-      reject(new Error(signal ? `doublcov exited from signal ${signal}.` : `doublcov exited with status ${code}.`));
+      reject(
+        new Error(
+          signal
+            ? `doublcov exited from signal ${signal}.`
+            : `doublcov exited with status ${code}.`,
+        ),
+      );
     });
   });
 }

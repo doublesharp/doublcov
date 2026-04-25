@@ -11,6 +11,17 @@ export interface BuildOptions {
   name?: string;
   customization?: CustomizationFileOption;
   diagnostics: DiagnosticFileOption[];
+  explicit?: ExplicitBuildOptions;
+}
+
+export interface ExplicitBuildOptions {
+  lcov?: boolean;
+  sources?: boolean;
+  sourceExtensions?: boolean;
+  out?: boolean;
+  history?: boolean;
+  open?: boolean;
+  name?: boolean;
 }
 
 export interface CustomizationFileOption {
@@ -30,11 +41,13 @@ export interface BuilderOptions extends Omit<BuildOptions, "lcov"> {
   builderArgs: string[];
 }
 
-const DEFAULT_LCOV = "lcov.info";
-const DEFAULT_OUT = "coverage/report";
-const DEFAULT_SOURCES = ["src"];
-const DEFAULT_SOURCE_EXTENSIONS_TEXT = DEFAULT_SOURCE_EXTENSIONS.map((extension) => extension.replace(/^\./, "")).join(",");
-const DEFAULT_HISTORY = ".doublcov/history.json";
+export const DEFAULT_LCOV = "lcov.info";
+export const DEFAULT_OUT = "coverage/report";
+export const DEFAULT_SOURCES = ["src"];
+const DEFAULT_SOURCE_EXTENSIONS_TEXT = DEFAULT_SOURCE_EXTENSIONS.map(
+  (extension) => extension.replace(/^\./, ""),
+).join(",");
+export const DEFAULT_HISTORY = ".doublcov/history.json";
 const DEFAULT_PORT = 60732;
 const DEFAULT_CUSTOMIZATION = "doublcov.config.json";
 
@@ -46,10 +59,16 @@ export type CliCommand =
 
 export function parseCommand(argv: string[]): CliCommand {
   const [command = "help", ...rest] = argv;
-  if (command === "help" || command === "--help" || command === "-h") return { name: "help" };
+  if (command === "help" || command === "--help" || command === "-h")
+    return { name: "help" };
   if (hasCommandHelp(rest)) return { name: "help" };
   if (command === "build") return { name: "build", options: parseBuild(rest) };
-  if (isBuilderCommand(command)) return { name: "builder", builder: command, options: parseBuilder(command, rest) };
+  if (isBuilderCommand(command))
+    return {
+      name: "builder",
+      builder: command,
+      options: parseBuilder(command, rest),
+    };
   if (command === "open") return parseOpen(rest);
   throw new Error(`Unknown command "${command}".`);
 }
@@ -59,7 +78,9 @@ function parseBuild(argv: string[]): BuildOptions {
   const lcov = values.lcov ?? DEFAULT_LCOV;
   const out = values.out ?? DEFAULT_OUT;
   const sources = values.sources ? parseList(values.sources) : DEFAULT_SOURCES;
-  const sourceExtensions = values.extensions ? parseList(values.extensions) : [...DEFAULT_SOURCE_EXTENSIONS];
+  const sourceExtensions = values.extensions
+    ? parseList(values.extensions)
+    : [...DEFAULT_SOURCE_EXTENSIONS];
   const customization = parseCustomizationFileOption(values);
   const open = parseOpenFlag(values);
   return {
@@ -71,7 +92,16 @@ function parseBuild(argv: string[]): BuildOptions {
     ...(open !== undefined ? { open } : {}),
     ...(customization ? { customization } : {}),
     diagnostics: parseDiagnosticFileOptions(argv, values),
-    ...(values.name ? { name: values.name } : {})
+    ...(values.name ? { name: values.name } : {}),
+    explicit: {
+      lcov: values.lcov !== undefined,
+      sources: values.sources !== undefined,
+      sourceExtensions: values.extensions !== undefined,
+      out: values.out !== undefined,
+      history: values.history !== undefined,
+      open: open !== undefined,
+      name: values.name !== undefined,
+    },
   };
 }
 
@@ -80,10 +110,12 @@ function parseBuilder(command: string, argv: string[]): BuilderOptions {
   const { cliArgs, passthroughArgs } = splitPassthrough(argv);
   const values = parseFlags(cliArgs, new Set(["open", "no-open"]));
   const out = values.out ?? DEFAULT_OUT;
-  const sources = values.sources ? parseList(values.sources) : builder?.defaultSources ?? DEFAULT_SOURCES;
+  const sources = values.sources
+    ? parseList(values.sources)
+    : (builder?.defaultSources ?? DEFAULT_SOURCES);
   const sourceExtensions = values.extensions
     ? parseList(values.extensions)
-    : builder?.defaultExtensions ?? [...DEFAULT_SOURCE_EXTENSIONS];
+    : (builder?.defaultExtensions ?? [...DEFAULT_SOURCE_EXTENSIONS]);
   const customization = parseCustomizationFileOption(values);
   const open = parseOpenFlag(values);
   return {
@@ -97,11 +129,22 @@ function parseBuilder(command: string, argv: string[]): BuilderOptions {
     builderArgs: passthroughArgs,
     ...(customization ? { customization } : {}),
     diagnostics: parseDiagnosticFileOptions(cliArgs, values),
-    ...(values.name ? { name: values.name } : {})
+    ...(values.name ? { name: values.name } : {}),
+    explicit: {
+      lcov: values.lcov !== undefined,
+      sources: values.sources !== undefined,
+      sourceExtensions: values.extensions !== undefined,
+      out: values.out !== undefined,
+      history: values.history !== undefined,
+      open: open !== undefined,
+      name: values.name !== undefined,
+    },
   };
 }
 
-function parseOpenFlag(values: Record<string, string | undefined>): boolean | undefined {
+function parseOpenFlag(
+  values: Record<string, string | undefined>,
+): boolean | undefined {
   if (values["no-open"] !== undefined) return false;
   if (values.open === undefined) return undefined;
   if (values.open === "true") return true;
@@ -116,32 +159,40 @@ function parseList(value: string): string[] {
     .filter(Boolean);
 }
 
-function parseCustomizationFileOption(values: Record<string, string | undefined>): CustomizationFileOption | undefined {
+function parseCustomizationFileOption(
+  values: Record<string, string | undefined>,
+): CustomizationFileOption | undefined {
   return {
     path: values.customization ?? DEFAULT_CUSTOMIZATION,
     required: Boolean(values.customization),
-    ...(values.theme ? { defaultTheme: values.theme } : {})
+    ...(values.theme ? { defaultTheme: values.theme } : {}),
   };
 }
 
 function parseDiagnosticFileOptions(
   argv: string[],
-  values: Record<string, string | undefined>
+  values: Record<string, string | undefined>,
 ): DiagnosticFileOption[] {
-  const diagnostics = readFlagValues(argv, "diagnostic").map(parseDiagnosticFileOption);
-  if (values.debug) diagnostics.push({ parser: "foundry-debug", path: values.debug });
-  if (values.bytecode) diagnostics.push({ parser: "foundry-bytecode", path: values.bytecode });
+  const diagnostics = readFlagValues(argv, "diagnostic").map(
+    parseDiagnosticFileOption,
+  );
+  if (values.debug)
+    diagnostics.push({ parser: "foundry-debug", path: values.debug });
+  if (values.bytecode)
+    diagnostics.push({ parser: "foundry-bytecode", path: values.bytecode });
   return diagnostics;
 }
 
 function parseDiagnosticFileOption(value: string): DiagnosticFileOption {
   const separatorIndex = value.indexOf(":");
   if (separatorIndex <= 0 || separatorIndex === value.length - 1) {
-    throw new Error(`Invalid diagnostic input "${value}". Expected <parser>:<path>.`);
+    throw new Error(
+      `Invalid diagnostic input "${value}". Expected <parser>:<path>.`,
+    );
   }
   return {
     parser: value.slice(0, separatorIndex),
-    path: value.slice(separatorIndex + 1)
+    path: value.slice(separatorIndex + 1),
   };
 }
 
@@ -159,7 +210,8 @@ function readFlagValues(argv: string[], flagName: string): string[] {
       continue;
     }
     const next = argv[index + 1];
-    if (!next || next.startsWith("--")) throw new Error(`Missing value for --${flagName}.`);
+    if (!next || next.startsWith("--"))
+      throw new Error(`Missing value for --${flagName}.`);
     values.push(next);
     index += 1;
   }
@@ -172,7 +224,7 @@ function parseOpen(argv: string[]): CliCommand {
   return {
     name: "open",
     reportDir: positional ?? values.dir ?? DEFAULT_OUT,
-    port: parsePort(values.port)
+    port: parsePort(values.port),
   };
 }
 
@@ -180,12 +232,17 @@ function parsePort(value: string | undefined): number {
   if (value === undefined) return DEFAULT_PORT;
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
-    throw new Error(`Invalid --port "${value}". Expected an integer between 1 and 65535.`);
+    throw new Error(
+      `Invalid --port "${value}". Expected an integer between 1 and 65535.`,
+    );
   }
   return parsed;
 }
 
-function parseFlags(argv: string[], booleanFlags = new Set<string>()): Record<string, string | undefined> {
+function parseFlags(
+  argv: string[],
+  booleanFlags = new Set<string>(),
+): Record<string, string | undefined> {
   const flags: Record<string, string | undefined> = {};
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -193,7 +250,8 @@ function parseFlags(argv: string[], booleanFlags = new Set<string>()): Record<st
     const flag = arg.slice(2);
     const separatorIndex = flag.indexOf("=");
     const key = separatorIndex === -1 ? flag : flag.slice(0, separatorIndex);
-    const inlineValue = separatorIndex === -1 ? undefined : flag.slice(separatorIndex + 1);
+    const inlineValue =
+      separatorIndex === -1 ? undefined : flag.slice(separatorIndex + 1);
     if (!key) continue;
     if (booleanFlags.has(key)) {
       flags[key] = inlineValue ?? "true";
@@ -210,12 +268,15 @@ function parseFlags(argv: string[], booleanFlags = new Set<string>()): Record<st
   return flags;
 }
 
-function splitPassthrough(argv: string[]): { cliArgs: string[]; passthroughArgs: string[] } {
+function splitPassthrough(argv: string[]): {
+  cliArgs: string[];
+  passthroughArgs: string[];
+} {
   const separatorIndex = argv.indexOf("--");
   if (separatorIndex === -1) return { cliArgs: argv, passthroughArgs: [] };
   return {
     cliArgs: argv.slice(0, separatorIndex),
-    passthroughArgs: argv.slice(separatorIndex + 1)
+    passthroughArgs: argv.slice(separatorIndex + 1),
   };
 }
 
@@ -251,9 +312,8 @@ Usage:
   doublcov pytest
   doublcov cargo-llvm-cov
   doublcov lcov-capture
-  doublcov forge --open -- --exclude-tests --ir-minimum
-  doublcov build --open
   doublcov build
+  doublcov build --no-open
   doublcov open
 
 Builder options:
@@ -268,8 +328,8 @@ Builder options:
   --diagnostic <in>   Optional parser-tagged diagnostics as <parser>:<path>
   --debug <path>      Alias for --diagnostic foundry-debug:<path>
   --bytecode <path>   Alias for --diagnostic foundry-bytecode:<path>
-  --open              Open the generated report index.html in the default browser
-  --no-open           Disable config-driven auto-open for this run
+  --open              Open the generated report index.html. Default outside CI
+  --no-open           Do not open the generated report. Default in CI and GitHub Actions
   --port <number>     Deprecated and ignored
   --                  Pass all remaining arguments to the underlying builder
 
@@ -285,7 +345,12 @@ Build options:
   --diagnostic <in>   Optional parser-tagged diagnostics as <parser>:<path>
   --debug <path>      Alias for --diagnostic foundry-debug:<path>
   --bytecode <path>   Alias for --diagnostic foundry-bytecode:<path>
-  --open              Open the generated report index.html in the default browser
-  --no-open           Disable config-driven auto-open for this run
+  --open              Open the generated report index.html. Default outside CI
+  --no-open           Do not open the generated report. Default in CI and GitHub Actions
+
+Builder defaults:
+  CLI flags override ${DEFAULT_CUSTOMIZATION}. Builder commands also read project config such as package.json,
+  foundry.toml, Hardhat source paths, Jest/Vitest/c8 config, .solcover.js, and pyproject.toml.
+  If --out is not configured, the report is written to a report directory next to the resolved LCOV file.
 `;
 }

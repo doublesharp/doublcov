@@ -26,7 +26,7 @@ npm install --save-dev @0xdoublesharp/doublcov
 doublcov cargo-tarpaulin
 ```
 
-Default output: `coverage/report`.
+Default output: `coverage/report`, unless Tarpaulin or Doublcov config resolves a different LCOV/report path. Local runs open the report by default.
 
 ## Passing arguments to cargo tarpaulin
 
@@ -45,9 +45,9 @@ doublcov cargo-tarpaulin -- --workspace --engine llvm
 coverage:
 	npx doublcov cargo-tarpaulin
 
-.PHONY: coverage-open
-coverage-open:
-	npx doublcov cargo-tarpaulin --open
+.PHONY: coverage-ci
+coverage-ci:
+	npx doublcov cargo-tarpaulin --no-open
 ```
 
 ## Manual LCOV path

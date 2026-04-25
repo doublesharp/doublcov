@@ -12,9 +12,9 @@ describe("parseCommand", () => {
         history: ".doublcov/history.json",
         customization: {
           path: "doublcov.config.json",
-          required: false
-        }
-      }
+          required: false,
+        },
+      },
     });
   });
 
@@ -31,8 +31,8 @@ describe("parseCommand", () => {
         "--history",
         ".custom/history.json",
         "--name",
-        "Diesis Contracts"
-      ])
+        "Diesis Contracts",
+      ]),
     ).toMatchObject({
       name: "build",
       options: {
@@ -40,8 +40,8 @@ describe("parseCommand", () => {
         sources: ["src", "contracts"],
         out: "coverage-report",
         history: ".custom/history.json",
-        name: "Diesis Contracts"
-      }
+        name: "Diesis Contracts",
+      },
     });
   });
 
@@ -53,30 +53,38 @@ describe("parseCommand", () => {
         "custom:coverage/custom.log",
         "--debug",
         "coverage.debug",
-        "--bytecode=coverage.bytecode"
-      ])
+        "--bytecode=coverage.bytecode",
+      ]),
     ).toMatchObject({
       name: "build",
       options: {
         diagnostics: [
           { parser: "custom", path: "coverage/custom.log" },
           { parser: "foundry-debug", path: "coverage.debug" },
-          { parser: "foundry-bytecode", path: "coverage.bytecode" }
-        ]
-      }
+          { parser: "foundry-bytecode", path: "coverage.bytecode" },
+        ],
+      },
     });
   });
 
   it("parses report customization options", () => {
-    expect(parseCommand(["build", "--customization", "coverage/doublcov.json", "--theme", "high-contrast"])).toMatchObject({
+    expect(
+      parseCommand([
+        "build",
+        "--customization",
+        "coverage/doublcov.json",
+        "--theme",
+        "high-contrast",
+      ]),
+    ).toMatchObject({
       name: "build",
       options: {
         customization: {
           path: "coverage/doublcov.json",
           defaultTheme: "high-contrast",
-          required: true
-        }
-      }
+          required: true,
+        },
+      },
     });
 
     expect(parseCommand(["vite", "--theme", "ocean"])).toMatchObject({
@@ -85,9 +93,9 @@ describe("parseCommand", () => {
         customization: {
           path: "doublcov.config.json",
           defaultTheme: "ocean",
-          required: false
-        }
-      }
+          required: false,
+        },
+      },
     });
   });
 
@@ -95,23 +103,25 @@ describe("parseCommand", () => {
     expect(parseCommand(["build", "--open"])).toMatchObject({
       name: "build",
       options: {
-        open: true
-      }
+        open: true,
+      },
     });
 
     expect(parseCommand(["build", "--no-open"])).toMatchObject({
       name: "build",
       options: {
-        open: false
-      }
+        open: false,
+      },
     });
 
-    expect(parseCommand(["forge", "--open=false", "--", "--exclude-tests"])).toMatchObject({
+    expect(
+      parseCommand(["forge", "--open=false", "--", "--exclude-tests"]),
+    ).toMatchObject({
       name: "builder",
       options: {
         open: false,
-        builderArgs: ["--exclude-tests"]
-      }
+        builderArgs: ["--exclude-tests"],
+      },
     });
   });
 
@@ -125,8 +135,8 @@ describe("parseCommand", () => {
         out: "coverage/report",
         history: ".doublcov/history.json",
         port: 60732,
-        builderArgs: ["--exclude-tests"]
-      }
+        builderArgs: ["--exclude-tests"],
+      },
     });
   });
 
@@ -149,8 +159,8 @@ describe("parseCommand", () => {
         "--exclude-tests",
         "--ir-minimum",
         "--match-path",
-        "test/Foo.t.sol"
-      ])
+        "test/Foo.t.sol",
+      ]),
     ).toMatchObject({
       name: "builder",
       builder: "forge",
@@ -162,22 +172,34 @@ describe("parseCommand", () => {
         history: ".doublcov/history.json",
         name: "Diesis Contracts",
         port: 60733,
-        builderArgs: ["--exclude-tests", "--ir-minimum", "--match-path", "test/Foo.t.sol"]
-      }
+        builderArgs: [
+          "--exclude-tests",
+          "--ir-minimum",
+          "--match-path",
+          "test/Foo.t.sol",
+        ],
+      },
     });
   });
 
   it("does not let boolean forge flags consume following CLI flags", () => {
     expect(
-      parseCommand(["forge", "--open", "--sources", "src", "--", "--exclude-tests"])
+      parseCommand([
+        "forge",
+        "--open",
+        "--sources",
+        "src",
+        "--",
+        "--exclude-tests",
+      ]),
     ).toMatchObject({
       name: "builder",
       builder: "forge",
       options: {
         open: true,
         sources: ["src"],
-        builderArgs: ["--exclude-tests"]
-      }
+        builderArgs: ["--exclude-tests"],
+      },
     });
   });
 
@@ -187,8 +209,8 @@ describe("parseCommand", () => {
       builder: "hardhat",
       options: {
         sources: ["contracts"],
-        sourceExtensions: [".sol"]
-      }
+        sourceExtensions: [".sol"],
+      },
     });
 
     expect(parseCommand(["vite", "--", "--runInBand"])).toMatchObject({
@@ -196,9 +218,14 @@ describe("parseCommand", () => {
       builder: "vite",
       options: {
         sources: ["src"],
-        sourceExtensions: expect.arrayContaining([".ts", ".tsx", ".js", ".jsx"]),
-        builderArgs: ["--runInBand"]
-      }
+        sourceExtensions: expect.arrayContaining([
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+        ]),
+        builderArgs: ["--runInBand"],
+      },
     });
 
     expect(parseCommand(["jest"])).toMatchObject({
@@ -206,8 +233,13 @@ describe("parseCommand", () => {
       builder: "jest",
       options: {
         sources: ["src"],
-        sourceExtensions: expect.arrayContaining([".ts", ".tsx", ".js", ".jsx"])
-      }
+        sourceExtensions: expect.arrayContaining([
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+        ]),
+      },
     });
 
     expect(parseCommand(["pytest"])).toMatchObject({
@@ -215,8 +247,8 @@ describe("parseCommand", () => {
       builder: "pytest",
       options: {
         sources: ["src"],
-        sourceExtensions: [".py", ".pyw"]
-      }
+        sourceExtensions: [".py", ".pyw"],
+      },
     });
 
     expect(parseCommand(["cargo-llvm-cov"])).toMatchObject({
@@ -224,8 +256,8 @@ describe("parseCommand", () => {
       builder: "cargo-llvm-cov",
       options: {
         sources: ["src"],
-        sourceExtensions: [".rs"]
-      }
+        sourceExtensions: [".rs"],
+      },
     });
 
     expect(parseCommand(["lcov-capture"])).toMatchObject({
@@ -233,8 +265,8 @@ describe("parseCommand", () => {
       builder: "lcov-capture",
       options: {
         sources: ["src", "include"],
-        sourceExtensions: expect.arrayContaining([".c", ".cpp", ".h", ".hpp"])
-      }
+        sourceExtensions: expect.arrayContaining([".c", ".cpp", ".h", ".hpp"]),
+      },
     });
   });
 
@@ -244,22 +276,38 @@ describe("parseCommand", () => {
       name: "builder",
       builder: "forge",
       options: {
-        builderArgs: ["--help"]
-      }
+        builderArgs: ["--help"],
+      },
     });
   });
 
   it("rejects out-of-range, fractional, or non-numeric --port values", () => {
-    expect(() => parseCommand(["forge", "--port", "0"])).toThrow(/Invalid --port/);
-    expect(() => parseCommand(["forge", "--port", "65536"])).toThrow(/Invalid --port/);
-    expect(() => parseCommand(["forge", "--port", "-1"])).toThrow(/Invalid --port/);
-    expect(() => parseCommand(["forge", "--port", "abc"])).toThrow(/Invalid --port/);
-    expect(() => parseCommand(["forge", "--port", "1.5"])).toThrow(/Invalid --port/);
-    expect(() => parseCommand(["open", "--port", "70000"])).toThrow(/Invalid --port/);
+    expect(() => parseCommand(["forge", "--port", "0"])).toThrow(
+      /Invalid --port/,
+    );
+    expect(() => parseCommand(["forge", "--port", "65536"])).toThrow(
+      /Invalid --port/,
+    );
+    expect(() => parseCommand(["forge", "--port", "-1"])).toThrow(
+      /Invalid --port/,
+    );
+    expect(() => parseCommand(["forge", "--port", "abc"])).toThrow(
+      /Invalid --port/,
+    );
+    expect(() => parseCommand(["forge", "--port", "1.5"])).toThrow(
+      /Invalid --port/,
+    );
+    expect(() => parseCommand(["open", "--port", "70000"])).toThrow(
+      /Invalid --port/,
+    );
   });
 
   it("accepts valid --port values at both ends of the range", () => {
-    expect(parseCommand(["forge", "--port", "1"])).toMatchObject({ options: { port: 1 } });
-    expect(parseCommand(["forge", "--port", "65535"])).toMatchObject({ options: { port: 65535 } });
+    expect(parseCommand(["forge", "--port", "1"])).toMatchObject({
+      options: { port: 1 },
+    });
+    expect(parseCommand(["forge", "--port", "65535"])).toMatchObject({
+      options: { port: 65535 },
+    });
   });
 });

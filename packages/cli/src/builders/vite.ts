@@ -11,11 +11,22 @@ export const viteBuilder: CoverageBuilderPlugin = {
   defaultSources: ["src"],
   defaultExtensions: javascriptSourceExtensions,
   async prepareRun(options) {
-    const { lcov, reportDir } = fixedLcovPath(options.lcov, viteBuilder.defaultLcov ?? "coverage/lcov.info", viteBuilder.label);
+    const { lcov, reportDir } = fixedLcovPath(
+      options.lcov,
+      viteBuilder.defaultLcov ?? "coverage/lcov.info",
+      viteBuilder.label,
+    );
     return {
       command: "npx",
-      args: ["vitest", "run", "--coverage", "--coverage.reporter=lcov", `--coverage.reportsDirectory=${reportDir}`, ...options.builderArgs],
-      lcov
+      args: [
+        "vitest",
+        "run",
+        "--coverage",
+        "--coverage.reporter=lcov",
+        `--coverage.reportsDirectory=${reportDir}`,
+        ...options.builderArgs,
+      ],
+      lcov,
     };
-  }
+  },
 };

@@ -1,0 +1,10 @@
+dist
+node_modules
+coverage
+.doublcov
+.tmp
+*.tgz
+*.tsbuildinfo
+pnpm-lock.yaml
+packages/cli/dist
+apps/web/dist

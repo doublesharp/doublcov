@@ -1,4 +1,9 @@
-export type CoverageStatus = "covered" | "partial" | "uncovered" | "ignored" | "neutral";
+export type CoverageStatus =
+  | "covered"
+  | "partial"
+  | "uncovered"
+  | "ignored"
+  | "neutral";
 
 export interface CoverageTotals {
   found: number;
@@ -165,7 +170,11 @@ export type CoverageThemeToken =
   | "syn-operator"
   | "syn-punctuation";
 
-export type CoverageUiHook = "report:header" | "report:summary" | "file:toolbar" | "sidebar:panel";
+export type CoverageUiHook =
+  | "report:header"
+  | "report:summary"
+  | "file:toolbar"
+  | "sidebar:panel";
 
 export interface CoverageHookContribution {
   id: string;

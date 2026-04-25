@@ -6,7 +6,10 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 const reportDir = path.join(repoRoot, ".tmp", "playwright-report");
 const cliPath = path.join(repoRoot, "packages/cli/dist/index.js");
 const port = Number(process.env.PORT ?? 60733);
@@ -17,7 +20,7 @@ const contentTypes = {
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".map": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
 };
 
 await rm(reportDir, { recursive: true, force: true });
@@ -37,7 +40,7 @@ await run(process.execPath, [
   "--name",
   "Playwright Fixture",
   "--diagnostic",
-  `foundry-debug:${path.join(repoRoot, "fixtures/simple/coverage.debug")}`
+  `foundry-debug:${path.join(repoRoot, "fixtures/simple/coverage.debug")}`,
 ]);
 
 await injectUnsafeCustomization(path.join(reportDir, "data/report.json"));
@@ -58,23 +61,23 @@ async function injectUnsafeCustomization(reportPath) {
         mode: "dark",
         tokens: {
           bg: "url(javascript:alert(1))",
-          text: "#ffffff"
-        }
-      }
+          text: "#ffffff",
+        },
+      },
     ],
     hooks: [
       {
         id: "unsafe-link",
         hook: "report:header",
         label: "Unsafe Link",
-        href: "javascript:alert(1)"
+        href: "javascript:alert(1)",
       },
       {
         id: "safe-link",
         hook: "report:header",
         label: "Safe Link",
-        href: "https://example.test/report"
-      }
+        href: "https://example.test/report",
+      },
     ],
     plugins: [
       {
@@ -84,17 +87,22 @@ async function injectUnsafeCustomization(reportPath) {
             id: "sidebar-note",
             hook: "sidebar:panel",
             label: "Plugin Note",
-            content: "<strong>rendered as text</strong>"
-          }
-        ]
-      }
-    ]
+            content: "<strong>rendered as text</strong>",
+          },
+        ],
+      },
+    ],
   };
   if (Array.isArray(report.files) && report.files[0]) {
-    report.files[0].sourceDataPath = "https://example.test/should-not-load.json";
+    report.files[0].sourceDataPath =
+      "https://example.test/should-not-load.json";
   }
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  await replaceEmbeddedJson(path.join(path.dirname(path.dirname(reportPath)), "index.html"), "doublcov-report-data", report);
+  await replaceEmbeddedJson(
+    path.join(path.dirname(path.dirname(reportPath)), "index.html"),
+    "doublcov-report-data",
+    report,
+  );
 }
 
 /**
@@ -111,11 +119,17 @@ async function replaceEmbeddedJson(indexPath, elementId, payload) {
     .replace(/>/g, "\\u003e")
     .replace(/\u2028/g, "\\u2028")
     .replace(/\u2029/g, "\\u2029");
-  const pattern = new RegExp(`(<script type="application/json" id="${elementId}">)([\\s\\S]*?)(</script>)`);
+  const pattern = new RegExp(
+    `(<script type="application/json" id="${elementId}">)([\\s\\S]*?)(</script>)`,
+  );
   await writeFile(
     indexPath,
-    html.replace(pattern, (_match, openTag, _existing, closeTag) => `${openTag}${escaped}${closeTag}`),
-    "utf8"
+    html.replace(
+      pattern,
+      (_match, openTag, _existing, closeTag) =>
+        `${openTag}${escaped}${closeTag}`,
+    ),
+    "utf8",
   );
 }
 
@@ -128,14 +142,20 @@ function serveReport(root, serverPort) {
   return new Promise((resolve, reject) => {
     const server = createServer((request, response) => {
       const requestPath = decodeURIComponent(request.url?.split("?")[0] ?? "/");
-      const absolutePath = path.resolve(root, `.${requestPath === "/" ? "/index.html" : requestPath}`);
+      const absolutePath = path.resolve(
+        root,
+        `.${requestPath === "/" ? "/index.html" : requestPath}`,
+      );
       const relativePath = path.relative(root, absolutePath);
       if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
         response.writeHead(403);
         response.end("Forbidden");
         return;
       }
-      response.setHeader("content-type", contentTypes[path.extname(absolutePath)] ?? "application/octet-stream");
+      response.setHeader(
+        "content-type",
+        contentTypes[path.extname(absolutePath)] ?? "application/octet-stream",
+      );
       createReadStream(absolutePath)
         .on("error", () => {
           response.writeHead(404);
@@ -145,7 +165,9 @@ function serveReport(root, serverPort) {
     });
     server.on("error", reject);
     server.listen(serverPort, "127.0.0.1", () => {
-      process.stdout.write(`Serving Playwright report fixture at http://127.0.0.1:${serverPort}\n`);
+      process.stdout.write(
+        `Serving Playwright report fixture at http://127.0.0.1:${serverPort}\n`,
+      );
       resolve();
     });
   });
@@ -165,7 +187,13 @@ function run(command, args) {
         resolve();
         return;
       }
-      reject(new Error(signal ? `${command} exited from signal ${signal}` : `${command} exited with status ${code ?? "unknown"}`));
+      reject(
+        new Error(
+          signal
+            ? `${command} exited from signal ${signal}`
+            : `${command} exited with status ${code ?? "unknown"}`,
+        ),
+      );
     });
   });
 }

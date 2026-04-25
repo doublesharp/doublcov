@@ -9,8 +9,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const requireFromRoot = createRequire(path.join(root, "package.json"));
 const cliRoot = path.join(root, "packages", "cli");
 const requireFromCli = createRequire(path.join(cliRoot, "package.json"));
-const { build } = await import(pathToFileURL(requireFromCli.resolve("esbuild")).href);
-const postjectCliPath = path.join(path.dirname(requireFromRoot.resolve("postject/package.json")), "dist", "cli.js");
+const { build } = await import(
+  pathToFileURL(requireFromCli.resolve("esbuild")).href
+);
+const postjectCliPath = path.join(
+  path.dirname(requireFromRoot.resolve("postject/package.json")),
+  "dist",
+  "cli.js",
+);
 const dist = path.join(cliRoot, "dist");
 const seaDir = path.join(dist, "sea");
 const binDir = path.join(dist, "bin");
@@ -18,7 +24,10 @@ const webDir = path.join(dist, "web");
 const platform = process.env.DOUBLCOV_TARGET_PLATFORM ?? process.platform;
 const arch = process.env.DOUBLCOV_TARGET_ARCH ?? process.arch;
 const target = `${normalizePlatform(platform)}-${normalizeArch(arch)}`;
-const executableName = process.platform === "win32" ? `doublcov-${target}.exe` : `doublcov-${target}`;
+const executableName =
+  process.platform === "win32"
+    ? `doublcov-${target}.exe`
+    : `doublcov-${target}`;
 const executablePath = path.join(binDir, executableName);
 const cjsBundlePath = path.join(seaDir, "index.cjs");
 const seaConfigPath = path.join(seaDir, "sea-config.json");
@@ -41,13 +50,19 @@ await build({
   format: "cjs",
   sourcemap: false,
   define: {
-    "import.meta.url": JSON.stringify(pathToFileURL(path.join(cliRoot, "src", "index.ts")).href)
+    "import.meta.url": JSON.stringify(
+      pathToFileURL(path.join(cliRoot, "src", "index.ts")).href,
+    ),
   },
-  external: ["node:*"]
+  external: ["node:*"],
 });
 
 const assets = await collectSeaAssets(webDir);
-await writeFile(seaWebManifestPath, `${JSON.stringify(Object.keys(assets).sort())}\n`, "utf8");
+await writeFile(
+  seaWebManifestPath,
+  `${JSON.stringify(Object.keys(assets).sort())}\n`,
+  "utf8",
+);
 assets[seaWebManifestKey] = seaWebManifestPath;
 await writeFile(
   seaConfigPath,
@@ -58,12 +73,12 @@ await writeFile(
       disableExperimentalSEAWarning: true,
       useCodeCache: false,
       useSnapshot: false,
-      assets
+      assets,
     },
     null,
-    2
+    2,
   )}\n`,
-  "utf8"
+  "utf8",
 );
 
 await run(process.execPath, ["--experimental-sea-config", seaConfigPath]);
@@ -81,7 +96,9 @@ await run(process.execPath, [
   seaBlobPath,
   "--sentinel-fuse",
   sentinelFuse,
-  ...(process.platform === "darwin" ? ["--macho-segment-name", "NODE_SEA"] : [])
+  ...(process.platform === "darwin"
+    ? ["--macho-segment-name", "NODE_SEA"]
+    : []),
 ]);
 
 if (process.platform === "darwin") {
@@ -125,7 +142,13 @@ function run(command, args) {
         resolve();
         return;
       }
-      reject(new Error(signal ? `${command} exited from signal ${signal}.` : `${command} exited with status ${code}.`));
+      reject(
+        new Error(
+          signal
+            ? `${command} exited from signal ${signal}.`
+            : `${command} exited with status ${code}.`,
+        ),
+      );
     });
   });
 }

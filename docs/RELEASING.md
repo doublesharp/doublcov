@@ -6,12 +6,12 @@ Maintainer reference for cutting a Doublcov release. End-user install paths live
 
 Every release tag (`v*`) publishes to all of:
 
-| Channel | Artifact |
-| --- | --- |
-| npm | `@0xdoublesharp/doublcov` |
-| GitHub Releases | per-platform binaries + `SHA256SUMS` |
-| GitHub Action | [`action.yml`](../action.yml) (downloads release binary) |
-| GHCR | `ghcr.io/doublesharp/doublcov:<tag>` and `:latest` |
+| Channel         | Artifact                                                 |
+| --------------- | -------------------------------------------------------- |
+| npm             | `@0xdoublesharp/doublcov`                                |
+| GitHub Releases | per-platform binaries + `SHA256SUMS`                     |
+| GitHub Action   | [`action.yml`](../action.yml) (downloads release binary) |
+| GHCR            | `ghcr.io/doublesharp/doublcov:<tag>` and `:latest`       |
 
 Additional install channels should consume the tagged GitHub Release binaries and checksums.
 

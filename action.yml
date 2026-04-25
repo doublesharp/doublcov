@@ -15,7 +15,7 @@ inputs:
     required: false
     default: build
   args:
-    description: Arguments passed to the Doublcov command.
+    description: Arguments passed to the Doublcov command. The action adds --no-open unless args already includes --open or --no-open.
     required: false
     default: ""
   install-only:

@@ -16,7 +16,7 @@
 Build from an existing `lcov.info` file or run one of the built-in coverage builders first:
 
 ```bash
-npx @0xdoublesharp/doublcov build --lcov lcov.info --sources src --out coverage/report
+npx @0xdoublesharp/doublcov build --lcov lcov.info --sources src
 ```
 
 ## What You Get
@@ -55,23 +55,30 @@ If your project already emits LCOV:
 ```bash
 doublcov build \
   --lcov lcov.info \
-  --sources src \
-  --out coverage/report
+  --sources src
 ```
 
-Preview the static report:
+Local builds open the generated `index.html` automatically. To skip opening a browser:
+
+```bash
+doublcov build --no-open
+```
+
+Open an existing report directory:
 
 ```bash
 doublcov open coverage/report
 ```
 
-Defaults:
+Generic `build` defaults:
 
 - LCOV: `lcov.info`
 - sources: `src`
 - output: `coverage/report`
 - history: `.doublcov/history.json`
 - optional config: `doublcov.config.json` when present
+
+Builder commands also read ecosystem config and place the report next to the resolved LCOV file when `--out` is not set.
 
 ## Built-In Builders
 
@@ -91,17 +98,17 @@ doublcov lcov-capture
 
 Supported builder commands:
 
-| Command | Tool it runs | Typical projects |
-| --- | --- | --- |
-| `foundry`, `forge` | `forge coverage --report lcov` | Solidity / Foundry |
-| `hardhat` | `npx hardhat coverage` | Solidity / Hardhat |
-| `vite`, `vitest` | `npx vitest run --coverage --coverage.reporter=lcov` | Vite / Vitest |
-| `jest` | `npx jest --coverage --coverageReporters=lcov` | Jest |
-| `c8`, `v8`, `node`, `node-test` | `npx c8 --reporter=lcov node --test` | Node test runner / V8 coverage |
-| `pytest`, `python`, `coverage.py` | `python -m pytest --cov --cov-report=lcov:<path>` | Python / pytest-cov |
-| `cargo-llvm-cov`, `llvm-cov`, `rust` | `cargo llvm-cov --lcov --output-path <path>` | Rust |
-| `cargo-tarpaulin`, `tarpaulin` | `cargo tarpaulin --out Lcov` | Rust |
-| `lcov-capture`, `lcov`, `gcov`, `c`, `cpp` | `lcov --capture` | C / C++ gcov data |
+| Command                                    | Tool it runs                                         | Typical projects               |
+| ------------------------------------------ | ---------------------------------------------------- | ------------------------------ |
+| `foundry`, `forge`                         | `forge coverage --report lcov`                       | Solidity / Foundry             |
+| `hardhat`                                  | `npx hardhat coverage`                               | Solidity / Hardhat             |
+| `vite`, `vitest`                           | `npx vitest run --coverage --coverage.reporter=lcov` | Vite / Vitest                  |
+| `jest`                                     | `npx jest --coverage --coverageReporters=lcov`       | Jest                           |
+| `c8`, `v8`, `node`, `node-test`            | `npx c8 --reporter=lcov node --test`                 | Node test runner / V8 coverage |
+| `pytest`, `python`, `coverage.py`          | `python -m pytest --cov --cov-report=lcov:<path>`    | Python / pytest-cov            |
+| `cargo-llvm-cov`, `llvm-cov`, `rust`       | `cargo llvm-cov --lcov --output-path <path>`         | Rust                           |
+| `cargo-tarpaulin`, `tarpaulin`             | `cargo tarpaulin --out Lcov`                         | Rust                           |
+| `lcov-capture`, `lcov`, `gcov`, `c`, `cpp` | `lcov --capture`                                     | C / C++ gcov data              |
 
 Builder arguments after `--` are passed to the underlying tool:
 
@@ -135,12 +142,15 @@ Doublcov automatically reads `doublcov.config.json` from the current working dir
 
 Configuration supports:
 
-- `open` to auto-open the generated `index.html` after `build` or builder commands
+- `open` to control whether the generated `index.html` opens after `build` or builder commands
+- `lcov`, `out`, `sources`, `extensions`, `history`, and `name` defaults
 - `defaultTheme`
 - custom `themes`
 - declarative hooks for `report:header`, `report:summary`, `file:toolbar`, and `sidebar:panel`
 
-`--open` and `--no-open` override the config for a single run.
+Reports open automatically after local `build` and builder commands. CI and the GitHub Action default to `--no-open`. Use `--open` or `--no-open` to override that behavior for a single run.
+
+For builder commands, default paths come from CLI flags first, then `doublcov.config.json`, then project config such as `package.json`, `foundry.toml`, Hardhat source paths, Jest/Vitest/c8 config, `.solcover.js`, or `pyproject.toml`. If no report output is configured, the report is written to a `report` directory next to the resolved LCOV file.
 
 See [Configuration](docs/CONFIGURATION.md).
 
@@ -176,6 +186,8 @@ GitHub Actions example:
 ```
 
 Use the npm package for Node projects, the GitHub Action for language-neutral CI, standalone binaries for local non-Node use, and Docker when your CI standardizes on containers. See [CI And Hosting](docs/CI.md) and [Releasing](docs/RELEASING.md).
+
+The GitHub Action passes `--no-open` by default. Add `--open` to `args` only when a workflow intentionally has a browser-capable environment.
 
 ## Development
 

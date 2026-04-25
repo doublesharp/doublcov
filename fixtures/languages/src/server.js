@@ -4,4 +4,3 @@ export function statusLabel(status) {
   }
   return "ok";
 }
-

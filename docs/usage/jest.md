@@ -29,7 +29,7 @@ pnpm add -D @0xdoublesharp/doublcov
 doublcov jest
 ```
 
-Default output: `coverage/report`.
+Default output: `coverage/report`, unless Jest or Doublcov config resolves a different LCOV/report path. Local runs open the report by default.
 
 ## Passing arguments to jest
 
@@ -45,10 +45,12 @@ doublcov jest -- --runInBand --testPathPattern src/lib
 {
   "scripts": {
     "coverage": "doublcov jest",
-    "coverage:open": "doublcov jest --open"
+    "coverage:ci": "doublcov jest --no-open"
   }
 }
 ```
+
+Doublcov reads Jest coverage defaults from `package.json` `jest.coverageDirectory`, `jest.config.json`, or simple static `coverageDirectory` values in `jest.config.*`.
 
 ## Manual LCOV path
 

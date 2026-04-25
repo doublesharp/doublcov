@@ -118,7 +118,7 @@ const shikiLanguages = [
   "typescript",
   "vue",
   "xml",
-  "yaml"
+  "yaml",
 ] as const;
 
 type ShikiLanguage = (typeof shikiLanguages)[number];
@@ -155,72 +155,97 @@ const shikiLanguageInputs = [
   typescript,
   vue,
   xml,
-  yaml
+  yaml,
 ];
 
 const solidityConfig: CodeLikeConfig = {
   keywords: words(
-    "abstract after alias anonymous apply as assembly break case catch constant constructor continue contract default delete do else emit enum error event external fallback for from function global if immutable import indexed interface internal is leave let library mapping memory modifier new override payable pragma private public pure receive return returns revert storage struct switch transient try unchecked using view virtual while"
+    "abstract after alias anonymous apply as assembly break case catch constant constructor continue contract default delete do else emit enum error event external fallback for from function global if immutable import indexed interface internal is leave let library mapping memory modifier new override payable pragma private public pure receive return returns revert storage struct switch transient try unchecked using view virtual while",
   ),
   types: words(
-    "address bool byte bytes bytes1 bytes2 bytes3 bytes4 bytes5 bytes6 bytes7 bytes8 bytes9 bytes10 bytes11 bytes12 bytes13 bytes14 bytes15 bytes16 bytes17 bytes18 bytes19 bytes20 bytes21 bytes22 bytes23 bytes24 bytes25 bytes26 bytes27 bytes28 bytes29 bytes30 bytes31 bytes32 fixed int int8 int16 int24 int32 int40 int48 int56 int64 int72 int80 int88 int96 int104 int112 int120 int128 int136 int144 int152 int160 int168 int176 int184 int192 int200 int208 int216 int224 int232 int240 int248 int256 string ufixed uint uint8 uint16 uint24 uint32 uint40 uint48 uint56 uint64 uint72 uint80 uint88 uint96 uint104 uint112 uint120 uint128 uint136 uint144 uint152 uint160 uint168 uint176 uint184 uint192 uint200 uint208 uint216 uint224 uint232 uint240 uint248 uint256 var"
+    "address bool byte bytes bytes1 bytes2 bytes3 bytes4 bytes5 bytes6 bytes7 bytes8 bytes9 bytes10 bytes11 bytes12 bytes13 bytes14 bytes15 bytes16 bytes17 bytes18 bytes19 bytes20 bytes21 bytes22 bytes23 bytes24 bytes25 bytes26 bytes27 bytes28 bytes29 bytes30 bytes31 bytes32 fixed int int8 int16 int24 int32 int40 int48 int56 int64 int72 int80 int88 int96 int104 int112 int120 int128 int136 int144 int152 int160 int168 int176 int184 int192 int200 int208 int216 int224 int232 int240 int248 int256 string ufixed uint uint8 uint16 uint24 uint32 uint40 uint48 uint56 uint64 uint72 uint80 uint88 uint96 uint104 uint112 uint120 uint128 uint136 uint144 uint152 uint160 uint168 uint176 uint184 uint192 uint200 uint208 uint216 uint224 uint232 uint240 uint248 uint256 var",
   ),
   builtins: words(
-    "abi addmod assert balance block blobhash blobbasefee call callcode chainid coinbase datahash delegatecall difficulty ecrecover encode encodeCall encodePacked encodeWithSelector encodeWithSignature gas gasleft keccak256 log0 log1 log2 log3 log4 msg mulmod number origin payable prevrandao ripemd160 selfbalance selfdestruct sender send sha256 sig staticcall timestamp transfer tx value"
+    "abi addmod assert balance block blobhash blobbasefee call callcode chainid coinbase datahash delegatecall difficulty ecrecover encode encodeCall encodePacked encodeWithSelector encodeWithSignature gas gasleft keccak256 log0 log1 log2 log3 log4 msg mulmod number origin payable prevrandao ripemd160 selfbalance selfdestruct sender send sha256 sig staticcall timestamp transfer tx value",
   ),
-  literals: words("false hex null true wei gwei ether seconds minutes hours days weeks years")
+  literals: words(
+    "false hex null true wei gwei ether seconds minutes hours days weeks years",
+  ),
 };
 
 const typescriptConfig: CodeLikeConfig = {
   keywords: words(
-    "abstract as async await break case catch class const constructor continue debugger declare default delete do else enum export extends finally for from function get if implements import in infer instanceof interface is keyof let module namespace new of package private protected public readonly require return satisfies set static super switch this throw try type typeof var void while with yield"
+    "abstract as async await break case catch class const constructor continue debugger declare default delete do else enum export extends finally for from function get if implements import in infer instanceof interface is keyof let module namespace new of package private protected public readonly require return satisfies set static super switch this throw try type typeof var void while with yield",
   ),
-  types: words("any bigint boolean never null number object string symbol undefined unknown void Array Date Error Map Promise Record RegExp Set WeakMap WeakSet"),
-  builtins: words("Array Boolean console Date Error JSON Math Number Object Promise Reflect RegExp String Symbol parseFloat parseInt"),
-  literals: words("false NaN null true undefined")
+  types: words(
+    "any bigint boolean never null number object string symbol undefined unknown void Array Date Error Map Promise Record RegExp Set WeakMap WeakSet",
+  ),
+  builtins: words(
+    "Array Boolean console Date Error JSON Math Number Object Promise Reflect RegExp String Symbol parseFloat parseInt",
+  ),
+  literals: words("false NaN null true undefined"),
 };
 
 const rustConfig: CodeLikeConfig = {
   keywords: words(
-    "as async await become box break const continue crate do dyn else enum extern false final fn for if impl in let loop macro match mod move mut override priv pub ref return self Self static struct super trait true try type typeof unsafe unsized use virtual where while yield"
+    "as async await become box break const continue crate do dyn else enum extern false final fn for if impl in let loop macro match mod move mut override priv pub ref return self Self static struct super trait true try type typeof unsafe unsized use virtual where while yield",
   ),
-  types: words("bool char f32 f64 i8 i16 i32 i64 i128 isize str u8 u16 u32 u64 u128 usize Option Result String Vec Box HashMap HashSet"),
-  builtins: words("assert assert_eq assert_ne cfg dbg drop eprintln format matches panic println todo unreachable vec"),
-  literals: words("false None Some true")
+  types: words(
+    "bool char f32 f64 i8 i16 i32 i64 i128 isize str u8 u16 u32 u64 u128 usize Option Result String Vec Box HashMap HashSet",
+  ),
+  builtins: words(
+    "assert assert_eq assert_ne cfg dbg drop eprintln format matches panic println todo unreachable vec",
+  ),
+  literals: words("false None Some true"),
 };
 
 const cConfig: CodeLikeConfig = {
   keywords: words(
-    "auto break case const continue default do else enum extern for goto if inline register restrict return signed sizeof static struct switch typedef union unsigned volatile while"
+    "auto break case const continue default do else enum extern for goto if inline register restrict return signed sizeof static struct switch typedef union unsigned volatile while",
   ),
-  types: words("bool char double float int long short size_t ssize_t uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t void"),
-  builtins: words("free malloc calloc realloc memcmp memcpy memmove memset printf snprintf sprintf fprintf puts strlen strcmp strncmp"),
-  literals: words("false NULL true")
+  types: words(
+    "bool char double float int long short size_t ssize_t uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t void",
+  ),
+  builtins: words(
+    "free malloc calloc realloc memcmp memcpy memmove memset printf snprintf sprintf fprintf puts strlen strcmp strncmp",
+  ),
+  literals: words("false NULL true"),
 };
 
 const cppConfig: CodeLikeConfig = {
   keywords: words(
-    "alignas alignof and asm auto bitand bitor break case catch class compl concept const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do dynamic_cast else enum explicit export extern for friend goto if import inline mutable namespace new noexcept not operator or private protected public register reinterpret_cast requires return sizeof static static_assert static_cast struct switch template this thread_local throw try typedef typeid typename union using virtual volatile while xor"
+    "alignas alignof and asm auto bitand bitor break case catch class compl concept const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do dynamic_cast else enum explicit export extern for friend goto if import inline mutable namespace new noexcept not operator or private protected public register reinterpret_cast requires return sizeof static static_assert static_cast struct switch template this thread_local throw try typedef typeid typename union using virtual volatile while xor",
   ),
-  types: words("auto bool char char8_t char16_t char32_t double float int long short size_t ssize_t std string uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t void wchar_t"),
-  builtins: words("cerr cin cout endl make_shared make_unique move printf size_t static_cast std"),
-  literals: words("false nullptr NULL true")
+  types: words(
+    "auto bool char char8_t char16_t char32_t double float int long short size_t ssize_t std string uint8_t uint16_t uint32_t uint64_t int8_t int16_t int32_t int64_t void wchar_t",
+  ),
+  builtins: words(
+    "cerr cin cout endl make_shared make_unique move printf size_t static_cast std",
+  ),
+  literals: words("false nullptr NULL true"),
 };
 
 const pythonConfig: CodeLikeConfig = {
   keywords: words(
-    "and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield"
+    "and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield",
   ),
-  types: words("bool bytes dict float frozenset int list object set str tuple type"),
-  builtins: words("abs all any bool bytes callable dict dir enumerate filter float hasattr int isinstance len list map max min object open print range repr reversed round set sorted str sum super tuple type zip"),
-  literals: words("False None True")
+  types: words(
+    "bool bytes dict float frozenset int list object set str tuple type",
+  ),
+  builtins: words(
+    "abs all any bool bytes callable dict dir enumerate filter float hasattr int isinstance len list map max min object open print range repr reversed round set sorted str sum super tuple type zip",
+  ),
+  literals: words("False None True"),
 };
 
 const cssKeywords = words(
-  "and from important in media not only or supports to var"
+  "and from important in media not only or supports to var",
 );
 
-export function highlightSourceLine(text: string, filePath: string): SyntaxToken[] {
+export function highlightSourceLine(
+  text: string,
+  filePath: string,
+): SyntaxToken[] {
   if (!text) return [{ text: " " }];
   const language = detectLanguage(filePath);
   const cacheKey = `${language}\u0000${text}`;
@@ -233,19 +258,26 @@ export function highlightSourceLine(text: string, filePath: string): SyntaxToken
   return tokens;
 }
 
-export async function highlightSourceLines(lines: string[], filePath: string, theme: "light" | "dark"): Promise<SyntaxToken[][]> {
+export async function highlightSourceLines(
+  lines: string[],
+  filePath: string,
+  theme: "light" | "dark",
+): Promise<SyntaxToken[][]> {
   const language = detectShikiLanguage(filePath);
-  if (!language) return lines.map((line) => highlightSourceLine(line, filePath));
+  if (!language)
+    return lines.map((line) => highlightSourceLine(line, filePath));
 
   try {
     const highlighter = await getHighlighter();
     const result = highlighter.codeToTokens(lines.join("\n"), {
       lang: language,
-      theme: theme === "dark" ? "github-dark" : "github-light"
+      theme: theme === "dark" ? "github-dark" : "github-light",
     });
     return lines.map((line, index) => {
       const row = result.tokens[index] ?? [];
-      return row.length > 0 ? row.map(shikiTokenToSyntaxToken) : highlightSourceLine(line, filePath);
+      return row.length > 0
+        ? row.map(shikiTokenToSyntaxToken)
+        : highlightSourceLine(line, filePath);
     });
   } catch {
     return lines.map((line) => highlightSourceLine(line, filePath));
@@ -256,18 +288,24 @@ function getHighlighter(): Promise<ShikiHighlighter> {
   highlighterPromise ??= createHighlighterCore({
     themes: [githubDark, githubLight],
     langs: shikiLanguageInputs,
-    engine: createOnigurumaEngine(wasm)
+    engine: createOnigurumaEngine(wasm),
   });
   return highlighterPromise;
 }
 
-function shikiTokenToSyntaxToken(token: { content: string; color?: string; fontStyle?: number }): SyntaxToken {
+function shikiTokenToSyntaxToken(token: {
+  content: string;
+  color?: string;
+  fontStyle?: number;
+}): SyntaxToken {
   const style: SyntaxToken["style"] = {};
   if (token.color) style.color = token.color;
   if ((token.fontStyle ?? 0) & 1) style.fontStyle = "italic";
   if ((token.fontStyle ?? 0) & 2) style.fontWeight = "600";
   if ((token.fontStyle ?? 0) & 4) style.textDecoration = "underline";
-  return Object.keys(style).length > 0 ? { text: token.content, style } : { text: token.content };
+  return Object.keys(style).length > 0
+    ? { text: token.content, style }
+    : { text: token.content };
 }
 
 function highlightByLanguage(text: string, language: Language): SyntaxToken[] {
@@ -307,8 +345,12 @@ function detectLanguage(filePath: string): Language {
   const extension = lower.split(".").pop() ?? "";
   if (extension === "sol") return "solidity";
   if (["c", "h"].includes(extension)) return "c";
-  if (["cc", "cpp", "cxx", "hh", "hpp", "hxx"].includes(extension)) return "cpp";
-  if (["ts", "tsx", "js", "jsx", "mjs", "cjs", "mts", "cts"].includes(extension)) return "typescript";
+  if (["cc", "cpp", "cxx", "hh", "hpp", "hxx"].includes(extension))
+    return "cpp";
+  if (
+    ["ts", "tsx", "js", "jsx", "mjs", "cjs", "mts", "cts"].includes(extension)
+  )
+    return "typescript";
   if (extension === "rs") return "rust";
   if (["py", "pyw"].includes(extension)) return "python";
   if (extension === "json" || lower.endsWith(".jsonc")) return "json";
@@ -326,7 +368,8 @@ function detectShikiLanguage(filePath: string): ShikiLanguage | null {
   const extension = lower.split(".").pop() ?? "";
   if (extension === "sol") return "solidity";
   if (extension === "c" || extension === "h") return "c";
-  if (["cc", "cpp", "cxx", "hh", "hpp", "hxx"].includes(extension)) return "cpp";
+  if (["cc", "cpp", "cxx", "hh", "hpp", "hxx"].includes(extension))
+    return "cpp";
   if (extension === "ts") return "typescript";
   if (extension === "tsx") return "tsx";
   if (["js", "mjs", "cjs"].includes(extension)) return "javascript";
@@ -358,7 +401,10 @@ function detectShikiLanguage(filePath: string): ShikiLanguage | null {
   return null;
 }
 
-function highlightCodeLike(text: string, config: CodeLikeConfig): SyntaxToken[] {
+function highlightCodeLike(
+  text: string,
+  config: CodeLikeConfig,
+): SyntaxToken[] {
   const tokens: SyntaxToken[] = [];
   let index = 0;
 
@@ -426,7 +472,11 @@ function highlightJson(text: string): SyntaxToken[] {
       const stop = readNumber(text, index);
       push(tokens, text.slice(index, stop), "number");
       index = stop;
-    } else if (startsWord(text, index, "true") || startsWord(text, index, "false") || startsWord(text, index, "null")) {
+    } else if (
+      startsWord(text, index, "true") ||
+      startsWord(text, index, "false") ||
+      startsWord(text, index, "null")
+    ) {
       const stop = readIdentifier(text, index);
       push(tokens, text.slice(index, stop), "literal");
       index = stop;
@@ -438,7 +488,10 @@ function highlightJson(text: string): SyntaxToken[] {
   return tokens;
 }
 
-function highlightConfig(text: string, language: "toml" | "yaml"): SyntaxToken[] {
+function highlightConfig(
+  text: string,
+  language: "toml" | "yaml",
+): SyntaxToken[] {
   const commentStart = text.search(language === "toml" ? /#/ : /#/);
   const code = commentStart === -1 ? text : text.slice(0, commentStart);
   const comment = commentStart === -1 ? "" : text.slice(commentStart);
@@ -461,7 +514,9 @@ function highlightConfig(text: string, language: "toml" | "yaml"): SyntaxToken[]
 function highlightShell(text: string): SyntaxToken[] {
   const tokens: SyntaxToken[] = [];
   let index = 0;
-  const keywords = words("case do done elif else esac export fi for function if in local readonly return set shift then unset while");
+  const keywords = words(
+    "case do done elif else esac export fi for function if in local readonly return set shift then unset while",
+  );
   while (index < text.length) {
     const char = text[index] ?? "";
     if (char === "#") {
@@ -494,7 +549,7 @@ function highlightPython(text: string): SyntaxToken[] {
   if (commentStart === -1) return highlightCodeLike(text, pythonConfig);
   return [
     ...highlightCodeLike(text.slice(0, commentStart), pythonConfig),
-    { text: text.slice(commentStart), kind: "comment" as const }
+    { text: text.slice(commentStart), kind: "comment" as const },
   ];
 }
 
@@ -502,7 +557,10 @@ function highlightMarkdown(text: string): SyntaxToken[] {
   if (/^\s{0,3}#{1,6}\s/.test(text)) return [{ text, kind: "keyword" }];
   if (/^\s*([-*+]|\d+\.)\s/.test(text)) {
     const marker = text.match(/^(\s*(?:[-*+]|\d+\.))/)?.[1] ?? "";
-    return [{ text: marker, kind: "operator" }, { text: text.slice(marker.length) }];
+    return [
+      { text: marker, kind: "operator" },
+      { text: text.slice(marker.length) },
+    ];
   }
   if (/^\s*>/.test(text)) return [{ text, kind: "comment" }];
   if (/^\s*```/.test(text)) return [{ text, kind: "keyword" }];
@@ -531,10 +589,26 @@ function highlightCss(text: string): SyntaxToken[] {
     } else if (isIdentifierStart(char) || char === "-") {
       const stop = readCssIdentifier(text, index);
       const word = text.slice(index, stop);
-      push(tokens, word, cssKeywords.has(word) ? "keyword" : findNextNonSpace(text, stop) === ":" ? "key" : undefined);
+      push(
+        tokens,
+        word,
+        cssKeywords.has(word)
+          ? "keyword"
+          : findNextNonSpace(text, stop) === ":"
+            ? "key"
+            : undefined,
+      );
       index = stop;
     } else {
-      push(tokens, char, isPunctuation(char) ? "punctuation" : isOperator(char) ? "operator" : undefined);
+      push(
+        tokens,
+        char,
+        isPunctuation(char)
+          ? "punctuation"
+          : isOperator(char)
+            ? "operator"
+            : undefined,
+      );
       index += 1;
     }
   }
@@ -566,7 +640,9 @@ function highlightMarkup(text: string): SyntaxToken[] {
 }
 
 function highlightTag(tokens: SyntaxToken[], tag: string): void {
-  const parts = tag.split(/(\s+|=|"[^"]*"|'[^']*'|[<>/])/g).filter((part) => part !== "");
+  const parts = tag
+    .split(/(\s+|=|"[^"]*"|'[^']*'|[<>/])/g)
+    .filter((part) => part !== "");
   let tagNameSeen = false;
   for (const part of parts) {
     if (/^["']/.test(part)) push(tokens, part, "string");
@@ -586,7 +662,10 @@ function highlightInlineMarkdown(text: string): SyntaxToken[] {
   while (index < text.length) {
     const codeStart = text.indexOf("`", index);
     const linkStart = text.indexOf("[", index);
-    const nextStart = [codeStart, linkStart].filter((value) => value >= 0).sort((a, b) => a - b)[0] ?? -1;
+    const nextStart =
+      [codeStart, linkStart]
+        .filter((value) => value >= 0)
+        .sort((a, b) => a - b)[0] ?? -1;
     if (nextStart === -1) {
       push(tokens, text.slice(index));
       break;
@@ -622,7 +701,11 @@ function pushSimpleValueTokens(tokens: SyntaxToken[], text: string): void {
     } else if (isIdentifierStart(char)) {
       const stop = readIdentifier(text, index);
       const word = text.slice(index, stop);
-      push(tokens, word, ["true", "false", "null"].includes(word) ? "literal" : undefined);
+      push(
+        tokens,
+        word,
+        ["true", "false", "null"].includes(word) ? "literal" : undefined,
+      );
       index = stop;
     } else {
       push(tokens, char, isPunctuation(char) ? "punctuation" : undefined);
@@ -644,7 +727,8 @@ function readQuoted(text: string, start: number, quote: string): number {
 
 function readNumber(text: string, start: number): number {
   let index = start;
-  while (index < text.length && /[A-Za-z0-9_.]/.test(text[index] ?? "")) index += 1;
+  while (index < text.length && /[A-Za-z0-9_.]/.test(text[index] ?? ""))
+    index += 1;
   return index;
 }
 
@@ -656,7 +740,8 @@ function readIdentifier(text: string, start: number): number {
 
 function readCssIdentifier(text: string, start: number): number {
   let index = start;
-  while (index < text.length && /[A-Za-z0-9_-]/.test(text[index] ?? "")) index += 1;
+  while (index < text.length && /[A-Za-z0-9_-]/.test(text[index] ?? ""))
+    index += 1;
   return index;
 }
 

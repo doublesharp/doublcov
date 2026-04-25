@@ -6,6 +6,6 @@ export default defineConfig({
   base: "./",
   plugins: [vue(), tailwindcss()],
   build: {
-    sourcemap: true
-  }
+    sourcemap: true,
+  },
 });

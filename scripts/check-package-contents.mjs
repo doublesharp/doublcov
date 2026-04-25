@@ -15,29 +15,49 @@ const FORBIDDEN_PATTERNS = [
   /^package\/vitest\.config\./,
   /^package\/tsconfig\./,
   /^package\/\.npmignore$/,
-  /^package\/node_modules\//
+  /^package\/node_modules\//,
 ];
 const MAX_TARBALL_BYTES = 5 * 1024 * 1024;
 
 const tempRoot = await mkdtemp(path.join(os.tmpdir(), "doublcov-pack-check-"));
 try {
-  await run("pnpm", ["--filter", "@0xdoublesharp/doublcov", "pack", "--pack-destination", tempRoot], root);
-  const tarball = (await readdir(tempRoot)).find((file) => file.endsWith(".tgz"));
+  await run(
+    "pnpm",
+    [
+      "--filter",
+      "@0xdoublesharp/doublcov",
+      "pack",
+      "--pack-destination",
+      tempRoot,
+    ],
+    root,
+  );
+  const tarball = (await readdir(tempRoot)).find((file) =>
+    file.endsWith(".tgz"),
+  );
   if (!tarball) throw new Error("No tarball produced by pnpm pack.");
   const tarballPath = path.join(tempRoot, tarball);
 
   const { size } = await stat(tarballPath);
   if (size > MAX_TARBALL_BYTES) {
-    throw new Error(`Tarball ${tarball} is ${size} bytes, exceeds budget of ${MAX_TARBALL_BYTES}.`);
+    throw new Error(
+      `Tarball ${tarball} is ${size} bytes, exceeds budget of ${MAX_TARBALL_BYTES}.`,
+    );
   }
 
   const entries = await listTarballEntries(tarballPath);
-  const offenders = entries.filter((entry) => FORBIDDEN_PATTERNS.some((pattern) => pattern.test(entry)));
+  const offenders = entries.filter((entry) =>
+    FORBIDDEN_PATTERNS.some((pattern) => pattern.test(entry)),
+  );
   if (offenders.length > 0) {
-    throw new Error(`Tarball contains forbidden entries:\n  ${offenders.join("\n  ")}`);
+    throw new Error(
+      `Tarball contains forbidden entries:\n  ${offenders.join("\n  ")}`,
+    );
   }
 
-  process.stdout.write(`Package contents OK: ${tarball} (${size} bytes, ${entries.length} entries)\n`);
+  process.stdout.write(
+    `Package contents OK: ${tarball} (${size} bytes, ${entries.length} entries)\n`,
+  );
 } finally {
   await rm(tempRoot, { recursive: true, force: true });
 }
@@ -63,7 +83,12 @@ function listTarballEntries(tarballPath) {
         reject(new Error(`tar exited with status ${code}: ${stderr.trim()}`));
         return;
       }
-      resolve(stdout.split("\n").map((line) => line.trim()).filter(Boolean));
+      resolve(
+        stdout
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean),
+      );
     });
   });
 }
@@ -83,7 +108,13 @@ function run(command, args, cwd) {
         resolve();
         return;
       }
-      reject(new Error(signal ? `${command} exited from signal ${signal}.` : `${command} exited with status ${code}.`));
+      reject(
+        new Error(
+          signal
+            ? `${command} exited from signal ${signal}.`
+            : `${command} exited with status ${code}.`,
+        ),
+      );
     });
   });
 }

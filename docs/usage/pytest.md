@@ -31,7 +31,7 @@ pnpm add -D @0xdoublesharp/doublcov
 doublcov pytest
 ```
 
-Default output: `coverage/report`.
+Default output: `coverage/report`, unless coverage.py or Doublcov config resolves a different LCOV/report path. Local runs open the report by default.
 
 ## Passing arguments to pytest
 
@@ -50,9 +50,9 @@ There is no native pytest equivalent of `package.json` scripts. A `Makefile` tar
 coverage:
 	npx doublcov pytest
 
-.PHONY: coverage-open
-coverage-open:
-	npx doublcov pytest --open
+.PHONY: coverage-ci
+coverage-ci:
+	npx doublcov pytest --no-open
 ```
 
 Or a `justfile`:
@@ -61,9 +61,11 @@ Or a `justfile`:
 coverage:
     npx doublcov pytest
 
-coverage-open:
-    npx doublcov pytest --open
+coverage-ci:
+    npx doublcov pytest --no-open
 ```
+
+Doublcov reads `[tool.coverage.lcov] output` from `pyproject.toml` when present.
 
 ## Manual LCOV path
 

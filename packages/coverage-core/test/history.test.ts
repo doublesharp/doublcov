@@ -7,9 +7,9 @@ const baseReport: Pick<CoverageReport, "generatedAt" | "totals" | "files"> = {
   totals: {
     lines: { found: 1, hit: 1, percent: 100 },
     functions: { found: 0, hit: 0, percent: 0 },
-    branches: { found: 0, hit: 0, percent: 0 }
+    branches: { found: 0, hit: 0, percent: 0 },
   },
-  files: []
+  files: [],
 };
 
 describe("appendHistoryRun", () => {
@@ -28,14 +28,21 @@ describe("appendHistoryRun", () => {
 
   it("preserves existing runs when appending", () => {
     const existing = appendHistoryRun(undefined, baseReport);
-    const next = appendHistoryRun(existing, { ...baseReport, generatedAt: "2026-04-25T00:00:00.000Z" });
+    const next = appendHistoryRun(existing, {
+      ...baseReport,
+      generatedAt: "2026-04-25T00:00:00.000Z",
+    });
     expect(next.runs).toHaveLength(2);
     expect(next.schemaVersion).toBe(HISTORY_SCHEMA_VERSION);
   });
 
   it("dedupes runs with the same id (commit + timestamp)", () => {
-    const first = appendHistoryRun(undefined, baseReport, { commit: "abc123def456" });
-    const second = appendHistoryRun(first, baseReport, { commit: "abc123def456" });
+    const first = appendHistoryRun(undefined, baseReport, {
+      commit: "abc123def456",
+    });
+    const second = appendHistoryRun(first, baseReport, {
+      commit: "abc123def456",
+    });
     expect(second.runs).toHaveLength(1);
   });
 });

@@ -8,11 +8,28 @@ export interface LanguageDefinition {
 }
 
 export const LANGUAGE_DEFINITIONS: LanguageDefinition[] = [
-  { id: "solidity", label: "Solidity", extensions: [".sol"], detectIgnoredLines: detectSolidityAssemblyLines },
-  { id: "cpp", label: "C++", extensions: [".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx"] },
+  {
+    id: "solidity",
+    label: "Solidity",
+    extensions: [".sol"],
+    detectIgnoredLines: detectSolidityAssemblyLines,
+  },
+  {
+    id: "cpp",
+    label: "C++",
+    extensions: [".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx"],
+  },
   { id: "c", label: "C", extensions: [".c", ".h"] },
-  { id: "typescript", label: "TypeScript", extensions: [".ts", ".tsx", ".mts", ".cts"] },
-  { id: "javascript", label: "JavaScript", extensions: [".js", ".jsx", ".mjs", ".cjs"] },
+  {
+    id: "typescript",
+    label: "TypeScript",
+    extensions: [".ts", ".tsx", ".mts", ".cts"],
+  },
+  {
+    id: "javascript",
+    label: "JavaScript",
+    extensions: [".js", ".jsx", ".mjs", ".cjs"],
+  },
   { id: "rust", label: "Rust", extensions: [".rs"] },
   { id: "python", label: "Python", extensions: [".py", ".pyw"] },
   { id: "go", label: "Go", extensions: [".go"] },
@@ -34,42 +51,62 @@ export const LANGUAGE_DEFINITIONS: LanguageDefinition[] = [
   { id: "json", label: "JSON", extensions: [".json", ".jsonc"] },
   { id: "yaml", label: "YAML", extensions: [".yaml", ".yml"] },
   { id: "toml", label: "TOML", extensions: [".toml"] },
-  { id: "markdown", label: "Markdown", extensions: [".md", ".mdx"] }
+  { id: "markdown", label: "Markdown", extensions: [".md", ".mdx"] },
 ];
 
 export const DEFAULT_SOURCE_EXTENSIONS = sourceExtensionsForLanguages();
 
 const languagesByExtension = new Map(
-  LANGUAGE_DEFINITIONS.flatMap((language) => language.extensions.map((extension) => [extension.toLowerCase(), language] as const))
+  LANGUAGE_DEFINITIONS.flatMap((language) =>
+    language.extensions.map(
+      (extension) => [extension.toLowerCase(), language] as const,
+    ),
+  ),
 );
-const languagesById = new Map(LANGUAGE_DEFINITIONS.map((language) => [language.id, language] as const));
+const languagesById = new Map(
+  LANGUAGE_DEFINITIONS.map((language) => [language.id, language] as const),
+);
 
 export function registerLanguageDefinition(language: LanguageDefinition): void {
   const normalized = {
     ...language,
-    extensions: language.extensions.map(normalizeExtension)
+    extensions: language.extensions.map(normalizeExtension),
   };
   const existing = languagesById.get(normalized.id);
   if (existing) {
-    const index = LANGUAGE_DEFINITIONS.findIndex((candidate) => candidate.id === normalized.id);
+    const index = LANGUAGE_DEFINITIONS.findIndex(
+      (candidate) => candidate.id === normalized.id,
+    );
     if (index !== -1) LANGUAGE_DEFINITIONS.splice(index, 1, normalized);
     for (const [extension, candidate] of languagesByExtension) {
-      if (candidate.id === normalized.id) languagesByExtension.delete(extension);
+      if (candidate.id === normalized.id)
+        languagesByExtension.delete(extension);
     }
   } else {
     LANGUAGE_DEFINITIONS.push(normalized);
   }
 
   languagesById.set(normalized.id, normalized);
-  for (const extension of normalized.extensions) languagesByExtension.set(extension, normalized);
+  for (const extension of normalized.extensions)
+    languagesByExtension.set(extension, normalized);
 }
 
-export function resolveLanguageDefinition(language: SourceLanguage): LanguageDefinition | undefined {
+export function resolveLanguageDefinition(
+  language: SourceLanguage,
+): LanguageDefinition | undefined {
   return languagesById.get(language);
 }
 
-export function sourceExtensionsForLanguages(languages = LANGUAGE_DEFINITIONS): string[] {
-  return [...new Set(languages.flatMap((language) => language.extensions.map(normalizeExtension)))];
+export function sourceExtensionsForLanguages(
+  languages = LANGUAGE_DEFINITIONS,
+): string[] {
+  return [
+    ...new Set(
+      languages.flatMap((language) =>
+        language.extensions.map(normalizeExtension),
+      ),
+    ),
+  ];
 }
 
 export function detectSourceLanguage(filePath: string): SourceLanguage {
@@ -80,7 +117,10 @@ export function sourceLanguageLabel(language: SourceLanguage): string {
   return languagesById.get(language)?.label ?? language;
 }
 
-export function detectIgnoredLines(lines: string[], language: SourceLanguage): IgnoredLine[] {
+export function detectIgnoredLines(
+  lines: string[],
+  language: SourceLanguage,
+): IgnoredLine[] {
   return languagesById.get(language)?.detectIgnoredLines?.(lines) ?? [];
 }
 
@@ -102,7 +142,7 @@ function detectSolidityAssemblyLines(lines: string[]): IgnoredLine[] {
       ignoredLines.push({
         line: lineNumber,
         reason: "solidity-assembly",
-        label: "Solidity assembly"
+        label: "Solidity assembly",
       });
       depth += countChar(stripped, "{") - countChar(stripped, "}");
       if (depth <= 0) {

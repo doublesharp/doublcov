@@ -6,7 +6,8 @@ export const cargoTarpaulinBuilder: CoverageBuilderPlugin = {
   id: "cargo-tarpaulin",
   aliases: ["tarpaulin"],
   label: "cargo-tarpaulin",
-  description: "Run cargo-tarpaulin with LCOV output and generate the static report.",
+  description:
+    "Run cargo-tarpaulin with LCOV output and generate the static report.",
   defaultLcov: "coverage/lcov.info",
   defaultSources: ["src"],
   defaultExtensions: rustSourceExtensions,
@@ -14,12 +15,19 @@ export const cargoTarpaulinBuilder: CoverageBuilderPlugin = {
     const { lcov, reportDir } = fixedLcovPath(
       options.lcov,
       cargoTarpaulinBuilder.defaultLcov ?? "coverage/lcov.info",
-      cargoTarpaulinBuilder.label
+      cargoTarpaulinBuilder.label,
     );
     return {
       command: "cargo",
-      args: ["tarpaulin", "--out", "Lcov", "--output-dir", reportDir, ...options.builderArgs],
-      lcov
+      args: [
+        "tarpaulin",
+        "--out",
+        "Lcov",
+        "--output-dir",
+        reportDir,
+        ...options.builderArgs,
+      ],
+      lcov,
     };
-  }
+  },
 };

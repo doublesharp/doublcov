@@ -10,7 +10,7 @@ export function readGitMetadata(cwd = process.cwd()): GitMetadata {
   const branch = runGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
   return {
     ...(commit ? { commit } : {}),
-    ...(branch ? { branch } : {})
+    ...(branch ? { branch } : {}),
   };
 }
 
@@ -19,7 +19,7 @@ function runGit(args: string[], cwd: string): string | undefined {
     return execFileSync("git", args, {
       cwd,
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"]
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   } catch {
     return undefined;

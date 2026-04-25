@@ -13,40 +13,72 @@ import {
   type SourceFilePayload,
   type SourceLanguage,
   type UncoveredItem,
-  type UncoveredKind
+  type UncoveredKind,
 } from "@0xdoublesharp/doublcov-core";
 
-const validCoverageStatuses = new Set<CoverageStatus>(["covered", "partial", "uncovered", "ignored", "neutral"]);
-const validUncoveredKinds = new Set<UncoveredKind>(["line", "function", "branch"]);
-const validDiagnosticSeverities = new Set<CoverageDiagnostic["severity"]>(["info", "warning"]);
+const validCoverageStatuses = new Set<CoverageStatus>([
+  "covered",
+  "partial",
+  "uncovered",
+  "ignored",
+  "neutral",
+]);
+const validUncoveredKinds = new Set<UncoveredKind>([
+  "line",
+  "function",
+  "branch",
+]);
+const validDiagnosticSeverities = new Set<CoverageDiagnostic["severity"]>([
+  "info",
+  "warning",
+]);
 const safeSourceDataPath = /^data\/files\/[A-Za-z0-9._-]+\.json$/;
 
 export function parseReportPayload(input: unknown): CoverageReport {
   if (!isRecord(input) || !Array.isArray(input.files)) {
-    throw new Error("Coverage report data/report.json is malformed: missing files.");
+    throw new Error(
+      "Coverage report data/report.json is malformed: missing files.",
+    );
   }
 
-  const files = input.files.map(sanitizeSourceFileCoverage).filter((file) => file !== null);
+  const files = input.files
+    .map(sanitizeSourceFileCoverage)
+    .filter((file) => file !== null);
   const fileIds = new Set(files.map((file) => file.id));
-  const customization = sanitizeCoverageReportCustomization(input.customization);
+  const customization = sanitizeCoverageReportCustomization(
+    input.customization,
+  );
   const report: CoverageReport = {
     schemaVersion: 1,
-    generatedAt: typeof input.generatedAt === "string" ? input.generatedAt : new Date(0).toISOString(),
+    generatedAt:
+      typeof input.generatedAt === "string"
+        ? input.generatedAt
+        : new Date(0).toISOString(),
     totals: sanitizeReportTotals(input.totals),
     files,
-    uncoveredItems: sanitizeArray(input.uncoveredItems, sanitizeUncoveredItem).filter((item) => fileIds.has(item.fileId)),
+    uncoveredItems: sanitizeArray(
+      input.uncoveredItems,
+      sanitizeUncoveredItem,
+    ).filter((item) => fileIds.has(item.fileId)),
     ignored: sanitizeReportIgnored(input.ignored),
     diagnostics: sanitizeArray(input.diagnostics, sanitizeDiagnostic),
     history: sanitizeHistory(input.history),
-    ...(typeof input.projectName === "string" ? { projectName: input.projectName } : {}),
-    ...(typeof input.projectRoot === "string" ? { projectRoot: input.projectRoot } : {}),
-    ...(customization ? { customization } : {})
+    ...(typeof input.projectName === "string"
+      ? { projectName: input.projectName }
+      : {}),
+    ...(typeof input.projectRoot === "string"
+      ? { projectRoot: input.projectRoot }
+      : {}),
+    ...(customization ? { customization } : {}),
   };
 
   return report;
 }
 
-export function parseSourcePayload(input: unknown, filePath: string): SourceFilePayload {
+export function parseSourcePayload(
+  input: unknown,
+  filePath: string,
+): SourceFilePayload {
   if (
     !isRecord(input) ||
     typeof input.id !== "string" ||
@@ -55,13 +87,15 @@ export function parseSourcePayload(input: unknown, filePath: string): SourceFile
     !Array.isArray(input.lines) ||
     !input.lines.every((line) => typeof line === "string")
   ) {
-    throw new Error(`Source payload for ${filePath} is malformed: missing id, path, language, or lines.`);
+    throw new Error(
+      `Source payload for ${filePath} is malformed: missing id, path, language, or lines.`,
+    );
   }
   return {
     id: input.id,
     path: input.path,
     language: input.language as SourceLanguage,
-    lines: input.lines
+    lines: input.lines,
   };
 }
 
@@ -87,8 +121,11 @@ function sanitizeSourceFileCoverage(input: unknown): SourceFileCoverage | null {
     totals: sanitizeReportTotals(input.totals),
     uncovered: sanitizeFileUncovered(input.uncovered),
     ignored: sanitizeFileIgnored(input.ignored),
-    searchText: typeof input.searchText === "string" ? input.searchText : input.path.toLowerCase(),
-    sourceDataPath: sanitizeSourceDataPath(input.sourceDataPath, input.id)
+    searchText:
+      typeof input.searchText === "string"
+        ? input.searchText
+        : input.path.toLowerCase(),
+    sourceDataPath: sanitizeSourceDataPath(input.sourceDataPath, input.id),
   };
 }
 
@@ -99,14 +136,16 @@ function sanitizeSourceDataPath(value: unknown, fileId: string): string {
 
 function sanitizeLineCoverage(input: unknown): LineCoverage | null {
   if (!isRecord(input)) return null;
-  const status = typeof input.status === "string" && validCoverageStatuses.has(input.status as CoverageStatus)
-    ? (input.status as CoverageStatus)
-    : "neutral";
+  const status =
+    typeof input.status === "string" &&
+    validCoverageStatuses.has(input.status as CoverageStatus)
+      ? (input.status as CoverageStatus)
+      : "neutral";
   return {
     line: sanitizePositiveInteger(input.line),
     hits: sanitizeNumber(input.hits),
     branches: sanitizeArray(input.branches, sanitizeBranchDetail),
-    status
+    status,
   };
 }
 
@@ -115,13 +154,22 @@ function sanitizeFunctionDetail(input: unknown): FunctionDetail | null {
   return {
     name: input.name,
     line: sanitizePositiveInteger(input.line),
-    ...(typeof input.endLine === "number" && Number.isInteger(input.endLine) && input.endLine > 0 ? { endLine: input.endLine } : {}),
-    hits: sanitizeNumber(input.hits)
+    ...(typeof input.endLine === "number" &&
+    Number.isInteger(input.endLine) &&
+    input.endLine > 0
+      ? { endLine: input.endLine }
+      : {}),
+    hits: sanitizeNumber(input.hits),
   };
 }
 
 function sanitizeBranchDetail(input: unknown): BranchDetail | null {
-  if (!isRecord(input) || typeof input.id !== "string" || typeof input.block !== "string" || typeof input.branch !== "string") {
+  if (
+    !isRecord(input) ||
+    typeof input.id !== "string" ||
+    typeof input.block !== "string" ||
+    typeof input.branch !== "string"
+  ) {
     return null;
   }
   return {
@@ -129,7 +177,7 @@ function sanitizeBranchDetail(input: unknown): BranchDetail | null {
     line: sanitizePositiveInteger(input.line),
     block: input.block,
     branch: input.branch,
-    taken: input.taken === null ? null : sanitizeNumber(input.taken)
+    taken: input.taken === null ? null : sanitizeNumber(input.taken),
   };
 }
 
@@ -153,23 +201,36 @@ function sanitizeUncoveredItem(input: unknown): UncoveredItem | null {
     filePath: input.filePath,
     line: sanitizePositiveInteger(input.line),
     label: input.label,
-    detail: input.detail
+    detail: input.detail,
   };
 }
 
 function sanitizeDiagnostic(input: unknown): CoverageDiagnostic | null {
-  if (!isRecord(input) || typeof input.id !== "string" || typeof input.source !== "string" || typeof input.message !== "string") {
+  if (
+    !isRecord(input) ||
+    typeof input.id !== "string" ||
+    typeof input.source !== "string" ||
+    typeof input.message !== "string"
+  ) {
     return null;
   }
   return {
     id: input.id,
     source: input.source,
-    severity: typeof input.severity === "string" && validDiagnosticSeverities.has(input.severity as CoverageDiagnostic["severity"])
-      ? (input.severity as CoverageDiagnostic["severity"])
-      : "info",
+    severity:
+      typeof input.severity === "string" &&
+      validDiagnosticSeverities.has(
+        input.severity as CoverageDiagnostic["severity"],
+      )
+        ? (input.severity as CoverageDiagnostic["severity"])
+        : "info",
     ...(typeof input.filePath === "string" ? { filePath: input.filePath } : {}),
-    ...(typeof input.line === "number" && Number.isInteger(input.line) && input.line > 0 ? { line: input.line } : {}),
-    message: input.message
+    ...(typeof input.line === "number" &&
+    Number.isInteger(input.line) &&
+    input.line > 0
+      ? { line: input.line }
+      : {}),
+    message: input.message,
   };
 }
 
@@ -177,23 +238,30 @@ function sanitizeHistory(input: unknown): CoverageHistory {
   if (!isRecord(input)) return { schemaVersion: 1, runs: [] };
   return {
     schemaVersion: 1,
-    runs: sanitizeArray(input.runs, sanitizeRun)
+    runs: sanitizeArray(input.runs, sanitizeRun),
   };
 }
 
 function sanitizeRun(input: unknown): CoverageHistory["runs"][number] | null {
-  if (!isRecord(input) || typeof input.id !== "string" || typeof input.timestamp !== "string") return null;
+  if (
+    !isRecord(input) ||
+    typeof input.id !== "string" ||
+    typeof input.timestamp !== "string"
+  )
+    return null;
   return {
     id: input.id,
     timestamp: input.timestamp,
     totals: sanitizeReportTotals(input.totals),
     files: sanitizeArray(input.files, sanitizeRunFile),
     ...(typeof input.commit === "string" ? { commit: input.commit } : {}),
-    ...(typeof input.branch === "string" ? { branch: input.branch } : {})
+    ...(typeof input.branch === "string" ? { branch: input.branch } : {}),
   };
 }
 
-function sanitizeRunFile(input: unknown): CoverageHistory["runs"][number]["files"][number] | null {
+function sanitizeRunFile(
+  input: unknown,
+): CoverageHistory["runs"][number]["files"][number] | null {
   if (!isRecord(input) || typeof input.path !== "string") return null;
   const uncovered = isRecord(input.uncovered) ? input.uncovered : {};
   return {
@@ -204,17 +272,19 @@ function sanitizeRunFile(input: unknown): CoverageHistory["runs"][number]["files
     uncovered: {
       lines: sanitizeNumber(uncovered.lines),
       functions: sanitizeNumber(uncovered.functions),
-      branches: sanitizeNumber(uncovered.branches)
-    }
+      branches: sanitizeNumber(uncovered.branches),
+    },
   };
 }
 
-function sanitizeFileUncovered(input: unknown): SourceFileCoverage["uncovered"] {
+function sanitizeFileUncovered(
+  input: unknown,
+): SourceFileCoverage["uncovered"] {
   if (!isRecord(input)) return { lines: [], functions: [], branches: [] };
   return {
     lines: sanitizeNumberArray(input.lines),
     functions: sanitizeArray(input.functions, sanitizeFunctionDetail),
-    branches: sanitizeArray(input.branches, sanitizeBranchDetail)
+    branches: sanitizeArray(input.branches, sanitizeBranchDetail),
   };
 }
 
@@ -223,16 +293,21 @@ function sanitizeFileIgnored(input: unknown): SourceFileCoverage["ignored"] {
   return {
     lines: sanitizeArray(input.lines, sanitizeIgnoredLine),
     byReason: sanitizeNumberRecord(input.byReason),
-    assemblyLines: sanitizeNumberArray(input.assemblyLines)
+    assemblyLines: sanitizeNumberArray(input.assemblyLines),
   };
 }
 
 function sanitizeIgnoredLine(input: unknown): IgnoredLine | null {
-  if (!isRecord(input) || typeof input.reason !== "string" || typeof input.label !== "string") return null;
+  if (
+    !isRecord(input) ||
+    typeof input.reason !== "string" ||
+    typeof input.label !== "string"
+  )
+    return null;
   return {
     line: sanitizePositiveInteger(input.line),
     reason: input.reason,
-    label: input.label
+    label: input.label,
   };
 }
 
@@ -241,7 +316,7 @@ function sanitizeReportIgnored(input: unknown): CoverageReport["ignored"] {
   return {
     lines: sanitizeNumber(input.lines),
     byReason: sanitizeNumberRecord(input.byReason),
-    assemblyLines: sanitizeNumber(input.assemblyLines)
+    assemblyLines: sanitizeNumber(input.assemblyLines),
   };
 }
 
@@ -253,7 +328,7 @@ function sanitizeReportTotals(input: unknown): CoverageReport["totals"] {
   return {
     lines: sanitizeTotals(input.lines),
     functions: sanitizeTotals(input.functions),
-    branches: sanitizeTotals(input.branches)
+    branches: sanitizeTotals(input.branches),
   };
 }
 
@@ -262,29 +337,42 @@ function sanitizeTotals(input: unknown): CoverageTotals {
   return {
     found: sanitizeNumber(input.found),
     hit: sanitizeNumber(input.hit),
-    percent: Math.min(Math.max(sanitizeNumber(input.percent), 0), 100)
+    percent: Math.min(Math.max(sanitizeNumber(input.percent), 0), 100),
   };
 }
 
 function sanitizeNumberArray(input: unknown): number[] {
-  return Array.isArray(input) ? input.map(sanitizePositiveInteger).filter((value) => value > 0) : [];
+  return Array.isArray(input)
+    ? input.map(sanitizePositiveInteger).filter((value) => value > 0)
+    : [];
 }
 
 function sanitizeNumberRecord(input: unknown): Record<string, number> {
   if (!isRecord(input)) return {};
-  return Object.fromEntries(Object.entries(input).map(([key, value]) => [key, sanitizeNumber(value)]));
+  return Object.fromEntries(
+    Object.entries(input).map(([key, value]) => [key, sanitizeNumber(value)]),
+  );
 }
 
-function sanitizeArray<T>(input: unknown, sanitize: (value: unknown) => T | null): T[] {
-  return Array.isArray(input) ? input.map(sanitize).filter((value): value is T => value !== null) : [];
+function sanitizeArray<T>(
+  input: unknown,
+  sanitize: (value: unknown) => T | null,
+): T[] {
+  return Array.isArray(input)
+    ? input.map(sanitize).filter((value): value is T => value !== null)
+    : [];
 }
 
 function sanitizeNumber(input: unknown): number {
-  return typeof input === "number" && Number.isFinite(input) && input >= 0 ? input : 0;
+  return typeof input === "number" && Number.isFinite(input) && input >= 0
+    ? input
+    : 0;
 }
 
 function sanitizePositiveInteger(input: unknown): number {
-  return typeof input === "number" && Number.isInteger(input) && input > 0 ? input : 1;
+  return typeof input === "number" && Number.isInteger(input) && input > 0
+    ? input
+    : 1;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

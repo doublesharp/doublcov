@@ -2,13 +2,15 @@
 
 Doublcov reports are static artifacts. CI should generate LCOV, run Doublcov, then upload or publish the output directory.
 
+CI environments default to `--no-open`, and the GitHub Action injects `--no-open` unless `args` already contains `--open` or `--no-open`.
+
 ## Generic CI Flow
 
 ```bash
 doublcov build \
   --lcov lcov.info \
   --sources src \
-  --out coverage/report
+  --no-open
 ```
 
 Upload:
@@ -50,7 +52,7 @@ To install `doublcov` into `PATH` and run multiple commands:
     version: <release-tag>
     install-only: "true"
 
-- run: doublcov build --lcov coverage/lcov.info --sources src --out coverage/report
+- run: doublcov build --lcov coverage/lcov.info --sources src --out coverage/report --no-open
 ```
 
 ## Per-Framework CI Snippets
@@ -62,6 +64,8 @@ Each [usage guide](usage/README.md) includes a minimal GitHub Actions snippet fo
 For pull requests, upload the report directory as a CI artifact. This avoids publishing untrusted PR output to a public static site.
 
 Recommended artifact path: `coverage/report`.
+
+Builder commands may choose a different artifact path when project config changes the LCOV location. If `--out` is not set, Doublcov writes the report to a `report` directory beside the resolved LCOV file, for example `coverage/unit/lcov.info` -> `coverage/unit/report`.
 
 ## Main Branch Reports
 

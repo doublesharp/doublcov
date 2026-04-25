@@ -12,7 +12,7 @@ export const hardhatBuilder: CoverageBuilderPlugin = {
     return {
       command: "npx",
       args: ["hardhat", "coverage", ...options.builderArgs],
-      lcov: options.lcov ?? hardhatBuilder.defaultLcov ?? "coverage/lcov.info"
+      lcov: options.lcov ?? hardhatBuilder.defaultLcov ?? "coverage/lcov.info",
     };
-  }
+  },
 };

@@ -5,7 +5,7 @@ export const HISTORY_SCHEMA_VERSION = 1;
 export function appendHistoryRun(
   history: { schemaVersion?: number; runs: CoverageRun[] } | undefined,
   report: Pick<CoverageReport, "generatedAt" | "totals" | "files">,
-  metadata: { commit?: string; branch?: string } = {}
+  metadata: { commit?: string; branch?: string } = {},
 ): CoverageHistory {
   const previousRuns = history?.runs ?? [];
   const run: CoverageRun = {
@@ -22,16 +22,16 @@ export function appendHistoryRun(
       uncovered: {
         lines: file.uncovered.lines.length,
         functions: file.uncovered.functions.length,
-        branches: file.uncovered.branches.length
-      }
+        branches: file.uncovered.branches.length,
+      },
     })),
     ...(metadata.commit ? { commit: metadata.commit } : {}),
-    ...(metadata.branch ? { branch: metadata.branch } : {})
+    ...(metadata.branch ? { branch: metadata.branch } : {}),
   };
 
   const deduped = previousRuns.filter((existing) => existing.id !== run.id);
   return {
     schemaVersion: HISTORY_SCHEMA_VERSION,
-    runs: [...deduped, run].slice(-100)
+    runs: [...deduped, run].slice(-100),
   };
 }

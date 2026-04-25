@@ -13,34 +13,38 @@ describe("parseReportPayload", () => {
             tokens: {
               bg: "url(javascript:alert(1))",
               text: "#ffffff",
-              unknown: "#000000"
-            }
-          }
+              unknown: "#000000",
+            },
+          },
         ],
         hooks: [
           {
             id: "bad",
             hook: "report:header",
             label: "Bad",
-            href: "javascript:alert(1)"
+            href: "javascript:alert(1)",
           },
           {
             id: "good",
             hook: "report:header",
             label: "Good",
-            href: "https://example.test/report"
-          }
-        ]
-      }
+            href: "https://example.test/report",
+          },
+        ],
+      },
     });
 
-    expect(report.customization?.themes?.[0]?.tokens).toEqual({ text: "#ffffff" });
+    expect(report.customization?.themes?.[0]?.tokens).toEqual({
+      text: "#ffffff",
+    });
     expect(report.customization?.hooks?.[0]).toEqual({
       id: "bad",
       hook: "report:header",
-      label: "Bad"
+      label: "Bad",
     });
-    expect(report.customization?.hooks?.[1]?.href).toBe("https://example.test/report");
+    expect(report.customization?.hooks?.[1]?.href).toBe(
+      "https://example.test/report",
+    );
   });
 
   it("keeps source payload fetches inside the generated data/files directory", () => {
@@ -49,21 +53,41 @@ describe("parseReportPayload", () => {
       files: [
         {
           ...baseFile(),
-          sourceDataPath: "https://example.test/exfiltrate.json"
-        }
-      ]
+          sourceDataPath: "https://example.test/exfiltrate.json",
+        },
+      ],
     });
 
-    expect(report.files[0]?.sourceDataPath).toBe("data/files/0001-src-index-ts.json");
+    expect(report.files[0]?.sourceDataPath).toBe(
+      "data/files/0001-src-index-ts.json",
+    );
   });
 });
 
 describe("parseSourcePayload", () => {
   it("rejects malformed source payloads", () => {
-    expect(() => parseSourcePayload({ id: "file", path: "src/index.ts", language: "typescript", lines: ["ok"] }, "src/index.ts")).not.toThrow();
-    expect(() => parseSourcePayload({ id: "file", path: "src/index.ts", language: "typescript", lines: [42] }, "src/index.ts")).toThrow(
-      /malformed/
-    );
+    expect(() =>
+      parseSourcePayload(
+        {
+          id: "file",
+          path: "src/index.ts",
+          language: "typescript",
+          lines: ["ok"],
+        },
+        "src/index.ts",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      parseSourcePayload(
+        {
+          id: "file",
+          path: "src/index.ts",
+          language: "typescript",
+          lines: [42],
+        },
+        "src/index.ts",
+      ),
+    ).toThrow(/malformed/);
   });
 });
 
@@ -76,7 +100,7 @@ function baseReport(): Record<string, unknown> {
     uncoveredItems: [],
     ignored: { lines: 0, byReason: {}, assemblyLines: 0 },
     diagnostics: [],
-    history: { schemaVersion: 1, runs: [] }
+    history: { schemaVersion: 1, runs: [] },
   };
 }
 
@@ -93,7 +117,7 @@ function baseFile(): Record<string, unknown> {
     uncovered: { lines: [], functions: [], branches: [] },
     ignored: { lines: [], byReason: {}, assemblyLines: [] },
     searchText: "src/index.ts",
-    sourceDataPath: "data/files/0001-src-index-ts.json"
+    sourceDataPath: "data/files/0001-src-index-ts.json",
   };
 }
 
@@ -101,6 +125,6 @@ function baseTotals(): Record<string, unknown> {
   return {
     lines: { found: 1, hit: 1, percent: 100 },
     functions: { found: 0, hit: 0, percent: 100 },
-    branches: { found: 0, hit: 0, percent: 100 }
+    branches: { found: 0, hit: 0, percent: 100 },
   };
 }

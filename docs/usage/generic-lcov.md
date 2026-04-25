@@ -48,14 +48,16 @@ doublcov build \
 {
   "scripts": {
     "coverage:report": "doublcov build --lcov coverage/lcov.info --sources src --out coverage/report",
-    "coverage:open": "doublcov open coverage/report"
+    "coverage:ci": "doublcov build --lcov coverage/lcov.info --sources src --out coverage/report --no-open"
   }
 }
 ```
 
+Local `build` commands open the generated report by default. Use `--no-open` in scripts that run in CI.
+
 ## Manual LCOV path
 
-This guide *is* the manual LCOV path. The general shape:
+This guide _is_ the manual LCOV path. The general shape:
 
 ```bash
 doublcov build \
@@ -74,7 +76,7 @@ For tools that always write `lcov.info` inside a report directory, `--lcov` must
   with:
     node-version: 22
 - run: npm ci
-- run: your-coverage-tool                 # produces coverage/lcov.info
+- run: your-coverage-tool # produces coverage/lcov.info
 - run: npx doublcov build --lcov coverage/lcov.info --sources src --out coverage/report
 - uses: actions/upload-artifact@v4
   with:

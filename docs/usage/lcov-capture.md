@@ -2,7 +2,7 @@
 
 Builder names: `lcov-capture` (aliases: `lcov`, `gcov`, `c`, `cpp`). Runs `lcov --capture` against existing `.gcda`/`.gcno` files and feeds the produced LCOV into Doublcov.
 
-This builder does *not* compile or run your tests. Build with gcov instrumentation and execute the test binary first; `lcov-capture` only collects the resulting coverage data.
+This builder does _not_ compile or run your tests. Build with gcov instrumentation and execute the test binary first; `lcov-capture` only collects the resulting coverage data.
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ After your build and test steps have produced `.gcda` files:
 doublcov lcov-capture -- --rc branch_coverage=1
 ```
 
-Default output: `coverage/report`.
+Default output: `coverage/report`, unless Doublcov config resolves a different LCOV/report path. Local runs open the report by default.
 
 ## Passing arguments to lcov
 
@@ -67,17 +67,17 @@ LDFLAGS += --coverage
 coverage: test
 	npx doublcov lcov-capture -- --rc branch_coverage=1
 
-.PHONY: coverage-open
-coverage-open: coverage
-	npx doublcov open coverage/report
+.PHONY: coverage-ci
+coverage-ci: test
+	npx doublcov lcov-capture --no-open -- --rc branch_coverage=1
 ```
 
 ## Manual LCOV path
 
 ```bash
-lcov --capture --directory . --output-file lcov.info
+lcov --capture --directory . --output-file coverage/lcov.info
 doublcov build \
-  --lcov lcov.info \
+  --lcov coverage/lcov.info \
   --sources src,include \
   --extensions c,h,cc,hh,cpp,cxx,hpp,hxx,ipp \
   --out coverage/report
@@ -90,7 +90,7 @@ doublcov build \
 - uses: actions/setup-node@v4
   with:
     node-version: 22
-- run: make test            # builds with --coverage and runs the test binary
+- run: make test # builds with --coverage and runs the test binary
 - run: npx doublcov lcov-capture -- --rc branch_coverage=1
 - uses: actions/upload-artifact@v4
   with:

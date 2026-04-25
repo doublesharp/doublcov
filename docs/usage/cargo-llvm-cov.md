@@ -31,7 +31,7 @@ npx @0xdoublesharp/doublcov cargo-llvm-cov
 doublcov cargo-llvm-cov
 ```
 
-Default output: `coverage/report`.
+Default output: `coverage/report`, unless Doublcov config resolves a different LCOV/report path. Local runs open the report by default.
 
 ## Passing arguments to cargo llvm-cov
 
@@ -50,9 +50,9 @@ A `Makefile` target:
 coverage:
 	npx doublcov cargo-llvm-cov
 
-.PHONY: coverage-open
-coverage-open:
-	npx doublcov cargo-llvm-cov --open
+.PHONY: coverage-ci
+coverage-ci:
+	npx doublcov cargo-llvm-cov --no-open
 ```
 
 Or `cargo` aliases in `.cargo/config.toml`:
@@ -67,9 +67,9 @@ coverage = "run --quiet --manifest-path tools/coverage/Cargo.toml"
 ## Manual LCOV path
 
 ```bash
-cargo llvm-cov --lcov --output-path lcov.info
+cargo llvm-cov --lcov --output-path coverage/lcov.info
 doublcov build \
-  --lcov lcov.info \
+  --lcov coverage/lcov.info \
   --sources src \
   --extensions rs \
   --out coverage/report

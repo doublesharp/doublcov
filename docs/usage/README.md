@@ -2,6 +2,8 @@
 
 One guide per built-in builder. Each page covers prerequisites, install, quick start, argument forwarding, package scripts, manual LCOV use, a CI snippet, and known gotchas.
 
+Builder commands open reports by default for local runs and default to `--no-open` in CI. Defaults resolve from CLI flags, then `doublcov.config.json`, then ecosystem config such as `package.json`, `foundry.toml`, Hardhat/Jest/Vitest/c8 config, `.solcover.js`, or `pyproject.toml`.
+
 ## Solidity
 
 - [Foundry](foundry.md) — `doublcov forge`

@@ -35,7 +35,7 @@ pnpm add -D @0xdoublesharp/doublcov
 doublcov hardhat
 ```
 
-Default output: `coverage/report`. History: `.doublcov/history.json`.
+Default output: `coverage/report`, unless Hardhat/solidity-coverage or Doublcov config resolves a different LCOV/report path. History: `.doublcov/history.json`. Local runs open the report by default.
 
 ## Passing arguments to hardhat
 
@@ -51,10 +51,12 @@ doublcov hardhat -- --testfiles 'test/unit/**/*.ts'
 {
   "scripts": {
     "coverage": "doublcov hardhat",
-    "coverage:open": "doublcov hardhat --open"
+    "coverage:ci": "doublcov hardhat --no-open"
   }
 }
 ```
+
+Doublcov reads simple static defaults from Hardhat config without importing executable config code: `paths.sources`, a simple `doublcov: { ... }` object, and `.solcover.js` `coverageDir` / `coverageDirectory`.
 
 ## Manual LCOV path
 

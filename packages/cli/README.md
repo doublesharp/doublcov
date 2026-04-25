@@ -16,7 +16,7 @@
 Build from an existing `lcov.info` file or run one of the built-in coverage builders first:
 
 ```bash
-npx @0xdoublesharp/doublcov build --lcov lcov.info --sources src --out coverage/report
+npx @0xdoublesharp/doublcov build --lcov lcov.info --sources src
 ```
 
 ## What You Get
@@ -63,8 +63,7 @@ Build from existing LCOV:
 ```bash
 doublcov build \
   --lcov lcov.info \
-  --sources src \
-  --out coverage/report
+  --sources src
 ```
 
 Run a builder and then build the report:
@@ -81,18 +80,20 @@ doublcov cargo-tarpaulin
 doublcov lcov-capture
 ```
 
-Preview a report:
+Local builds open the generated `index.html` automatically. Open an existing report directory:
 
 ```bash
 doublcov open coverage/report
 ```
 
-Defaults:
+Generic `build` defaults:
 
 - LCOV path: `lcov.info`
 - source path: `src`
 - output directory: `coverage/report`
 - history file: `.doublcov/history.json`
+
+Builder commands also read ecosystem config and place the report next to the resolved LCOV file when `--out` is not set.
 
 ## Supported Builders
 
@@ -127,7 +128,7 @@ Foundry:
 {
   "scripts": {
     "coverage": "doublcov forge -- --exclude-tests --ir-minimum",
-    "coverage:open": "doublcov forge --open -- --exclude-tests --ir-minimum"
+    "coverage:ci": "doublcov forge --no-open -- --exclude-tests --ir-minimum"
   }
 }
 ```
@@ -138,7 +139,7 @@ Hardhat:
 {
   "scripts": {
     "coverage": "doublcov hardhat",
-    "coverage:open": "doublcov hardhat --open"
+    "coverage:ci": "doublcov hardhat --no-open"
   }
 }
 ```
@@ -207,11 +208,13 @@ doublcov build \
   --theme ci-dark
 ```
 
-Customization JSON can set `"open": true` to auto-open the generated `index.html` after `build` or builder commands. It can also define themes and declarative UI hook metadata for `report:header`, `report:summary`, `file:toolbar`, and `sidebar:panel`.
+Customization JSON can set `"open"` to control whether the generated `index.html` opens after `build` or builder commands. It can also set `lcov`, `out`, `sources`, `extensions`, `history`, and `name` defaults, plus themes and declarative UI hook metadata for `report:header`, `report:summary`, `file:toolbar`, and `sidebar:panel`.
 
 The CLI automatically loads `doublcov.config.json` from the current working directory when it exists. Use `--customization <path>` to override the path. An explicitly supplied customization path must exist.
 
-Use `--open` or `--no-open` to override the config for one run.
+Local builds open by default. CI and the GitHub Action default to `--no-open`. Use `--open` or `--no-open` to override that behavior for one run.
+
+Builder command defaults resolve from CLI flags first, then `doublcov.config.json`, then project config such as `package.json`, `foundry.toml`, Hardhat source paths, Jest/Vitest/c8 config, `.solcover.js`, or `pyproject.toml`. When no report output is configured, Doublcov writes the report to a `report` directory next to the resolved LCOV file.
 
 ## Output Hosting
 
@@ -231,6 +234,7 @@ For non-Node projects, use the repository action to download the standalone bina
 
 Use the same release tag for the action ref and the `version` input. The
 `version` input also accepts `latest`, but pinned tags make CI reproducible.
+The action passes `--no-open` by default. Add `--open` to `args` only when the workflow intentionally has a browser-capable environment.
 
 ## Distribution
 

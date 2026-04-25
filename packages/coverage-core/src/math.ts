@@ -4,7 +4,7 @@ export function makeTotals(found: number, hit: number): CoverageTotals {
   return {
     found,
     hit,
-    percent: found === 0 ? 100 : Math.round((hit / found) * 10000) / 100
+    percent: found === 0 ? 100 : Math.round((hit / found) * 10000) / 100,
   };
 }
 
