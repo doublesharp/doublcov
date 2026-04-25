@@ -1448,6 +1448,22 @@ function parseUncoveredKind(value: string | null): UncoveredKind | "all" {
           </aside>
         </section>
       </template>
+
+      <footer
+        class="muted flex flex-wrap items-center justify-center gap-1 pb-2 text-xs"
+      >
+        <span>Generated with</span>
+        <span aria-label="love" class="text-[var(--accent)]">♥</span>
+        <span>by</span>
+        <a
+          class="font-medium text-[var(--accent)] underline"
+          href="https://github.com/doublesharp/doublcov"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Doublcov
+        </a>
+      </footer>
     </div>
 
     <div
