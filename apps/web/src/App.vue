@@ -35,10 +35,16 @@ const navigatorHeight = ref(readStoredNavigatorHeight());
 const navigatorResizeStart = ref<{ y: number; height: number } | null>(null);
 const theme = ref(localStorage.getItem("doublcov-theme") ?? "dark");
 const error = ref<string | null>(null);
+const liveServerOffline = ref(false);
 const highlightedSourceTokens = ref<Record<number, SyntaxToken[]>>({});
 const highlightRequestId = ref(0);
 const navigatorRowHeight = 74;
 const navigatorOverscan = 6;
+const livePreviewPath = "/__doublcov/live";
+const livePreviewIntervalMs = 2000;
+let livePreviewSeen = false;
+let livePreviewCheckInFlight = false;
+let livePreviewMonitorId: number | null = null;
 
 const selectedFile = computed(() => report.value?.files.find((file) => file.id === selectedFileId.value) ?? null);
 const availableThemes = computed(() => mergeThemes(builtInThemes, report.value?.customization?.themes ?? []));
@@ -159,6 +165,7 @@ onMounted(async () => {
   window.addEventListener("keydown", handleKeyboardShortcut);
   window.addEventListener("mousemove", handleNavigatorResizeMove);
   window.addEventListener("mouseup", stopNavigatorResize);
+  startLivePreviewMonitor();
   readHashState();
   try {
     const response = await fetch("data/report.json");
@@ -181,6 +188,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleKeyboardShortcut);
   window.removeEventListener("mousemove", handleNavigatorResizeMove);
   window.removeEventListener("mouseup", stopNavigatorResize);
+  if (livePreviewMonitorId !== null) window.clearInterval(livePreviewMonitorId);
 });
 
 watch(theme, () => {
@@ -237,6 +245,32 @@ function applyTheme(): void {
     if (isCoverageThemeToken(token) && typeof value === "string" && isSafeThemeTokenValue(value)) {
       document.documentElement.style.setProperty(`--${token}`, value.trim());
     }
+  }
+}
+
+function startLivePreviewMonitor(): void {
+  void updateLivePreviewStatus();
+  livePreviewMonitorId = window.setInterval(() => {
+    void updateLivePreviewStatus();
+  }, livePreviewIntervalMs);
+}
+
+async function updateLivePreviewStatus(): Promise<void> {
+  if (livePreviewCheckInFlight) return;
+  livePreviewCheckInFlight = true;
+  try {
+    const response = await fetch(`${livePreviewPath}?t=${Date.now()}`, { cache: "no-store" });
+    const connected = response.status === 204 && response.headers.get("x-doublcov-live-preview") === "1";
+    if (connected) {
+      livePreviewSeen = true;
+      liveServerOffline.value = false;
+      return;
+    }
+    if (livePreviewSeen) liveServerOffline.value = true;
+  } catch {
+    if (livePreviewSeen) liveServerOffline.value = true;
+  } finally {
+    livePreviewCheckInFlight = false;
   }
 }
 
@@ -567,6 +601,17 @@ function parseUncoveredKind(value: string | null): UncoveredKind | "all" {
 
 <template>
   <main class="min-h-screen">
+    <div
+      v-if="liveServerOffline"
+      class="fixed bottom-4 left-1/2 z-50 w-[min(560px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-red-400 bg-[var(--panel)] px-4 py-3 text-sm text-[var(--text)] shadow-2xl"
+      role="status"
+      aria-live="polite"
+    >
+      <div class="font-semibold">Local preview server stopped</div>
+      <div class="muted mt-1">
+        Restart <code>doublcov open</code> and refresh this tab before navigating to uncached report data.
+      </div>
+    </div>
     <div class="mx-auto flex max-w-[1800px] flex-col gap-4 px-4 py-4 lg:px-6">
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div>

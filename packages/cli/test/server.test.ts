@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { resolveServedPath } from "../src/server.js";
+import { browserOpenCommand, isLivePreviewRequest, resolveServedPath } from "../src/server.js";
 
 let tempRoot: string;
 let reportDir: string;
@@ -60,5 +60,41 @@ describe("resolveServedPath", () => {
     await mkdir(path.join(reportDir, "subdir"));
     const result = await resolveServedPath(reportDir, "/subdir");
     expect(result.kind).toBe("not-found");
+  });
+});
+
+describe("browserOpenCommand", () => {
+  it("uses open on macOS", () => {
+    expect(browserOpenCommand("http://127.0.0.1:60732", "darwin")).toEqual({
+      command: "open",
+      args: ["http://127.0.0.1:60732"]
+    });
+  });
+
+  it("uses cmd start on Windows", () => {
+    expect(browserOpenCommand("http://127.0.0.1:60732", "win32")).toEqual({
+      command: "cmd",
+      args: ["/c", "start", "", "http://127.0.0.1:60732"]
+    });
+  });
+
+  it("uses xdg-open on Linux and other platforms", () => {
+    expect(browserOpenCommand("http://127.0.0.1:60732", "linux")).toEqual({
+      command: "xdg-open",
+      args: ["http://127.0.0.1:60732"]
+    });
+  });
+});
+
+describe("isLivePreviewRequest", () => {
+  it("matches the live preview heartbeat endpoint", () => {
+    expect(isLivePreviewRequest("/__doublcov/live")).toBe(true);
+    expect(isLivePreviewRequest("/__doublcov/live?ts=1")).toBe(true);
+  });
+
+  it("does not match regular report files", () => {
+    expect(isLivePreviewRequest("/index.html")).toBe(false);
+    expect(isLivePreviewRequest("/data/report.json")).toBe(false);
+    expect(isLivePreviewRequest(undefined)).toBe(false);
   });
 });

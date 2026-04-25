@@ -1,10 +1,30 @@
-# @0xdoublesharp/doublcov
+<div align="center">
+  <img src="https://raw.githubusercontent.com/doublesharp/doublcov/main/docs/doublcov.png" alt="Doublcov report mark" width="132">
+  <h1>@0xdoublesharp/doublcov</h1>
+  <p><strong>Find what's missing in LCOV coverage.</strong></p>
+  <p>
+    Static, self-contained coverage reports with source browsing, uncovered navigation,
+    history, diagnostics, syntax highlighting, themes, and declarative UI hooks.
+  </p>
+  <p>
+    <a href="https://www.npmjs.com/package/@0xdoublesharp/doublcov"><img alt="npm" src="https://img.shields.io/npm/v/@0xdoublesharp/doublcov?color=2ea043"></a>
+    <a href="https://github.com/doublesharp/doublcov/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/doublesharp/doublcov/ci.yml?branch=main&label=ci"></a>
+    <a href="https://github.com/doublesharp/doublcov/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  </p>
+</div>
 
-Find what's missing.
+Build from an existing `lcov.info` file or run one of the built-in coverage builders first:
 
-CLI for generating static LCOV coverage reports.
+```bash
+npx @0xdoublesharp/doublcov build --lcov lcov.info --sources src --out coverage/report
+```
 
-Doublcov can consume an existing `lcov.info` file or run a supported coverage builder first, then writes a self-contained static web report that helps you find what's missing.
+## What You Get
+
+- A portable static report directory you can upload to CI artifacts or any static host.
+- Built-in builders for Foundry, Hardhat, Vitest, Jest, Node/V8, pytest, Rust coverage tools, and gcov/lcov.
+- Source-level navigation for uncovered lines, branch/function totals, parser diagnostics, and historical coverage.
+- A GitHub Action, npm package, standalone binaries, and Docker image for different project shapes.
 
 ## Install
 
