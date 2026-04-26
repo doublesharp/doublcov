@@ -13,8 +13,7 @@ export const cargoLlvmCovBuilder: CoverageBuilderPlugin = {
   defaultSources: ["src"],
   defaultExtensions: rustSourceExtensions,
   async prepareRun(options) {
-    const lcov =
-      options.lcov ?? cargoLlvmCovBuilder.defaultLcov ?? "coverage/lcov.info";
+    const lcov = options.lcov ?? cargoLlvmCovBuilder.defaultLcov!;
     await mkdir(path.dirname(lcov), { recursive: true });
     return {
       command: "cargo",

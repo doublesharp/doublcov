@@ -32,7 +32,7 @@
   ],
   "type": "module",
   "bin": {
-    "doublcov": "./dist/index.js"
+    "doublcov": "./dist/bin.js"
   },
   "files": [
     "dist/*.d.ts",

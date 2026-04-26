@@ -14,7 +14,7 @@ export const jestBuilder: CoverageBuilderPlugin = {
   async prepareRun(options) {
     const { lcov, reportDir } = fixedLcovPath(
       options.lcov,
-      jestBuilder.defaultLcov ?? "coverage/lcov.info",
+      jestBuilder.defaultLcov!,
       jestBuilder.label,
     );
     return {

@@ -32,7 +32,10 @@ export function deriveReportOut(
 ): string {
   if (!lcov) return fallback;
   const directory = path.dirname(lcov);
-  return path.join(directory === "." ? "" : directory, "report") || "report";
+  // path.join always returns "report" or `${directory}/report`; the second
+  // arg is a non-empty string, so the result is never "". The trailing
+  // `|| "report"` would shadow that case, but it is unreachable.
+  return path.join(directory === "." ? "" : directory, "report");
 }
 
 function mergeDefaults(
@@ -269,11 +272,14 @@ async function firstExisting(
 }
 
 function parseSimpleToml(text: string): Map<string, Record<string, unknown>> {
-  const sections = new Map<string, Record<string, unknown>>([["", {}]]);
-  let current = sections.get("") ?? {};
+  const rootSection: Record<string, unknown> = {};
+  const sections = new Map<string, Record<string, unknown>>([["", rootSection]]);
+  let current = rootSection;
   const rawLines = text.split(/\r?\n/);
   for (let index = 0; index < rawLines.length; index += 1) {
-    const line = stripTomlComment(rawLines[index] ?? "").trim();
+    // `index < rawLines.length`, so `rawLines[index]` is never undefined; the
+    // non-null assertion removes a dead `?? ""` branch.
+    const line = stripTomlComment(rawLines[index]!).trim();
     if (!line) continue;
     const section = line.match(/^\[([^\]]+)\]$/);
     if (section?.[1]) {
@@ -281,9 +287,11 @@ function parseSimpleToml(text: string): Map<string, Record<string, unknown>> {
       sections.set(section[1], current);
       continue;
     }
+    // The capture groups (.+) and ([A-Za-z0-9_.-]+) are non-empty when the
+    // regex matches, so assignment[1] and assignment[2] are always strings.
     const assignment = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
-    if (!assignment?.[1] || !assignment[2]) continue;
-    let valueText = assignment[2];
+    if (!assignment) continue;
+    let valueText = assignment[2]!;
     // If this is the start of a multi-line array, accumulate until the closing
     // bracket so parseSimpleValue can split entries across lines.
     if (
@@ -293,13 +301,14 @@ function parseSimpleToml(text: string): Map<string, Record<string, unknown>> {
       const collected = [valueText];
       while (index + 1 < rawLines.length) {
         index += 1;
-        const next = stripTomlComment(rawLines[index] ?? "");
+        // Same in-bounds guarantee as the outer loop.
+        const next = stripTomlComment(rawLines[index]!);
         collected.push(next);
         if (next.includes("]")) break;
       }
       valueText = collected.join(" ");
     }
-    current[assignment[1]] = parseSimpleValue(valueText);
+    current[assignment[1]!] = parseSimpleValue(valueText);
   }
   return sections;
 }

@@ -13,8 +13,7 @@ export const pytestBuilder: CoverageBuilderPlugin = {
   defaultSources: ["src"],
   defaultExtensions: pythonSourceExtensions,
   async prepareRun(options) {
-    const lcov =
-      options.lcov ?? pytestBuilder.defaultLcov ?? "coverage/lcov.info";
+    const lcov = options.lcov ?? pytestBuilder.defaultLcov!;
     await mkdir(path.dirname(lcov), { recursive: true });
     return {
       command: "python",

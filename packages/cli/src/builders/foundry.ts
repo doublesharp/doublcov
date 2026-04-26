@@ -11,8 +11,7 @@ export const foundryBuilder: CoverageBuilderPlugin = {
   defaultSources: ["src"],
   defaultExtensions: [".sol"],
   async prepareRun(options) {
-    const lcov =
-      options.lcov ?? foundryBuilder.defaultLcov ?? "coverage/lcov.info";
+    const lcov = options.lcov ?? foundryBuilder.defaultLcov!;
     await mkdir(path.dirname(lcov), { recursive: true });
     return {
       command: "forge",

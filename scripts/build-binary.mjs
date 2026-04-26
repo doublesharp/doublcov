@@ -42,7 +42,7 @@ await mkdir(seaDir, { recursive: true });
 await mkdir(binDir, { recursive: true });
 
 await build({
-  entryPoints: [path.join(cliRoot, "src", "index.ts")],
+  entryPoints: [path.join(cliRoot, "src", "bin.ts")],
   outfile: cjsBundlePath,
   bundle: true,
   platform: "node",
@@ -51,7 +51,7 @@ await build({
   sourcemap: false,
   define: {
     "import.meta.url": JSON.stringify(
-      pathToFileURL(path.join(cliRoot, "src", "index.ts")).href,
+      pathToFileURL(path.join(cliRoot, "src", "bin.ts")).href,
     ),
   },
   external: ["node:*"],

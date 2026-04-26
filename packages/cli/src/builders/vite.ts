@@ -13,7 +13,7 @@ export const viteBuilder: CoverageBuilderPlugin = {
   async prepareRun(options) {
     const { lcov, reportDir } = fixedLcovPath(
       options.lcov,
-      viteBuilder.defaultLcov ?? "coverage/lcov.info",
+      viteBuilder.defaultLcov!,
       viteBuilder.label,
     );
     return {

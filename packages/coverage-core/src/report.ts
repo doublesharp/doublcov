@@ -353,11 +353,11 @@ function findNearbySourceFunctionName(
     if (functionName) return functionName;
   }
   for (let current = index + 1; current <= end; current += 1) {
-    // The `?? ""` here is defensive but unreachable: end is clamped to
-    // `sourceLines.length - 1`, so current is always a valid in-bounds index.
-    // Coverage tools flag the fallback as a missed branch; do not "fix" it.
+    // `end` is clamped to `sourceLines.length - 1`, so `current` is always a
+    // valid in-bounds index. The non-null assertion removes a dead `?? ""`
+    // branch that coverage tools previously flagged as missed.
     const functionName = parseSourceFunctionName(
-      sourceLines[current] ?? "",
+      sourceLines[current]!,
       language,
     );
     if (functionName) return functionName;
@@ -499,9 +499,9 @@ function normalizeSourcePath(filePath: string, projectRoot?: string): string {
   const normalized = normalizePath(filePath);
   if (!projectRoot) return normalized;
   const root = projectRoot.replace(/\/+$/, "");
-  // The `?? normalized` fallback is defensive but unreachable: `String.split`
-  // always returns a non-empty array, so `.at(-1)` is never undefined.
-  if (normalized === root) return normalized.split("/").at(-1) ?? normalized;
+  // `String.split` always returns a non-empty array, so `.at(-1)` is never
+  // undefined. The non-null assertion removes a dead `?? normalized` branch.
+  if (normalized === root) return normalized.split("/").at(-1)!;
   if (!normalized.startsWith(`${root}/`)) return normalized;
   return normalized.slice(root.length + 1);
 }
@@ -524,10 +524,10 @@ function findSourceContent(
       sourcePath.endsWith(`/${stripped}`),
   );
   if (suffixMatches.length === 1) {
-    // `suffixMatches[0]?.[1] ?? ""` is defensive: length===1 guarantees the
-    // entry exists, and Map.entries() always yields a [key, value] tuple
-    // whose value is the string content. The fallback is unreachable.
-    return { content: suffixMatches[0]?.[1] ?? "", found: true };
+    // length===1 guarantees the entry exists, and Map.entries() always yields
+    // a [key, value] tuple whose value is the string content. The non-null
+    // assertion removes a dead `?? ""` branch.
+    return { content: suffixMatches[0]![1], found: true };
   }
 
   const lcovFileName = stripped.split("/").at(-1);
@@ -536,7 +536,7 @@ function findSourceContent(
   );
   if (basenameMatches.length === 1) {
     // Same defensive-but-unreachable pattern as the suffix match above.
-    return { content: basenameMatches[0]?.[1] ?? "", found: true };
+    return { content: basenameMatches[0]![1], found: true };
   }
   return { content: "", found: false };
 }

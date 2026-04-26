@@ -11,7 +11,7 @@ const repoRoot = path.resolve(
   "..",
 );
 const reportDir = path.join(repoRoot, ".tmp", "playwright-report");
-const cliPath = path.join(repoRoot, "packages/cli/dist/index.js");
+const cliPath = path.join(repoRoot, "packages/cli/dist/bin.js");
 const port = Number(process.env.PORT ?? 60733);
 /** @type {Record<string, string>} */
 const contentTypes = {

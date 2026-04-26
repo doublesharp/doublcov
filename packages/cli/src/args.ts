@@ -121,7 +121,7 @@ function parseBuild(argv: string[]): BuildOptions {
     port: parsePort(values.port),
     timeoutMs: parseTimeout(values.timeout),
     ...(open !== undefined ? { open } : {}),
-    ...(customization ? { customization } : {}),
+    customization,
     diagnostics: parseDiagnosticFileOptions(argv, values),
     ...(values.name ? { name: values.name } : {}),
     explicit: {
@@ -162,7 +162,7 @@ function parseBuilder(command: string, argv: string[]): BuilderOptions {
     timeoutMs: parseTimeout(values.timeout),
     history: values.history ?? DEFAULT_HISTORY,
     builderArgs: passthroughArgs,
-    ...(customization ? { customization } : {}),
+    customization,
     diagnostics: parseDiagnosticFileOptions(cliArgs, values),
     ...(values.name ? { name: values.name } : {}),
     explicit: {
@@ -203,7 +203,7 @@ function parseList(value: string): string[] {
 
 function parseCustomizationFileOption(
   values: Record<string, string | undefined>,
-): CustomizationFileOption | undefined {
+): CustomizationFileOption {
   return {
     path: values.customization ?? DEFAULT_CUSTOMIZATION,
     required: Boolean(values.customization),
@@ -251,10 +251,11 @@ function readFlagValues(argv: string[], flagName: string): string[] {
       values.push(flag.slice(separatorIndex + 1));
       continue;
     }
-    const next = argv[index + 1];
-    if (!next || next.startsWith("--"))
-      throw new Error(`Missing value for --${flagName}.`);
-    values.push(next);
+    // parseFlags() runs before readFlagValues() and already throws
+    // "Missing value for --<flag>" when the flag is registered in
+    // VALUE_FLAGS without a following value, so argv[index + 1] is
+    // guaranteed to exist and not start with "--" here.
+    values.push(argv[index + 1]!);
     index += 1;
   }
   return values;

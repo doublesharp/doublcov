@@ -51,7 +51,7 @@ jobs:
 
       - name: Generate Doublcov report
         run: >
-          node packages/cli/dist/index.js build
+          node packages/cli/dist/bin.js build
           --lcov coverage/lcov.info
           --sources packages,apps
           --out coverage/report

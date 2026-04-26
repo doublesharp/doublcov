@@ -14,7 +14,7 @@ export const c8Builder: CoverageBuilderPlugin = {
   async prepareRun(options) {
     const { lcov, reportDir } = fixedLcovPath(
       options.lcov,
-      c8Builder.defaultLcov ?? "coverage/lcov.info",
+      c8Builder.defaultLcov!,
       c8Builder.label,
     );
     return {

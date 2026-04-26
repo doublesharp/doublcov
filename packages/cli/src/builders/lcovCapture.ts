@@ -12,8 +12,7 @@ export const lcovCaptureBuilder: CoverageBuilderPlugin = {
   defaultSources: ["src", "include"],
   defaultExtensions: cFamilySourceExtensions,
   async prepareRun(options) {
-    const lcov =
-      options.lcov ?? lcovCaptureBuilder.defaultLcov ?? "coverage/lcov.info";
+    const lcov = options.lcov ?? lcovCaptureBuilder.defaultLcov!;
     await mkdir(path.dirname(lcov), { recursive: true });
     return {
       command: "lcov",

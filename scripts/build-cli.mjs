@@ -20,8 +20,11 @@ for (const entry of await readdir(dist).catch(() => [])) {
 }
 
 await build({
-  entryPoints: [path.join(cliRoot, "src", "index.ts")],
-  outfile: path.join(dist, "index.js"),
+  entryPoints: [
+    path.join(cliRoot, "src", "index.ts"),
+    path.join(cliRoot, "src", "bin.ts"),
+  ],
+  outdir: dist,
   bundle: true,
   platform: "node",
   target: "node22",

@@ -14,7 +14,7 @@ export const cargoTarpaulinBuilder: CoverageBuilderPlugin = {
   async prepareRun(options) {
     const { lcov, reportDir } = fixedLcovPath(
       options.lcov,
-      cargoTarpaulinBuilder.defaultLcov ?? "coverage/lcov.info",
+      cargoTarpaulinBuilder.defaultLcov!,
       cargoTarpaulinBuilder.label,
     );
     return {
