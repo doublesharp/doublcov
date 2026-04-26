@@ -43,7 +43,8 @@ export function parseReportPayload(input: unknown): CoverageReport {
 
   const files = input.files
     .map(sanitizeSourceFileCoverage)
-    .filter((file) => file !== null);
+    .filter((file) => file !== null)
+    .filter(uniqueFileId());
   const fileIds = new Set(files.map((file) => file.id));
   const customization = sanitizeCoverageReportCustomization(
     input.customization,
@@ -78,6 +79,7 @@ export function parseReportPayload(input: unknown): CoverageReport {
 export function parseSourcePayload(
   input: unknown,
   filePath: string,
+  expected?: { id: string; path: string },
 ): SourceFilePayload {
   if (
     !isRecord(input) ||
@@ -91,11 +93,25 @@ export function parseSourcePayload(
       `Source payload for ${filePath} is malformed: missing id, path, language, or lines.`,
     );
   }
+  if (expected && (input.id !== expected.id || input.path !== expected.path)) {
+    throw new Error(
+      `Source payload for ${filePath} is malformed: expected ${expected.path}.`,
+    );
+  }
   return {
     id: input.id,
     path: input.path,
     language: input.language as SourceLanguage,
     lines: input.lines,
+  };
+}
+
+function uniqueFileId(): (file: SourceFileCoverage) => boolean {
+  const seen = new Set<string>();
+  return (file) => {
+    if (seen.has(file.id)) return false;
+    seen.add(file.id);
+    return true;
   };
 }
 

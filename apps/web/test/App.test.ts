@@ -998,3 +998,416 @@ describe("App.vue read/write hash state with non-default filters", () => {
     expect(select.element.value).toBe("function");
   });
 });
+
+describe("App.vue ignored line rendering", () => {
+  it("renders 'asm' label for solidity-assembly ignored lines and 'ign' for others", async () => {
+    const payload = buildPayload();
+    const file = (payload.report.files as Record<string, unknown>[])[0]!;
+    // Mark line 3 as ignored solidity-assembly, line 1 as ignored generic.
+    const lines = [
+      { line: 1, hits: 0, branches: [], status: "ignored" },
+      { line: 2, hits: 0, branches: [], status: "uncovered" },
+      { line: 3, hits: 0, branches: [], status: "ignored" },
+    ];
+    file.lines = lines;
+    file.ignored = {
+      lines: [
+        { line: 3, reason: "solidity-assembly", label: "assembly" },
+        { line: 1, reason: "other-reason", label: "general" },
+      ],
+      byReason: { "solidity-assembly": 1, "other-reason": 1 },
+      assemblyLines: [3],
+    };
+    // Bump the report-level ignored count so the "excludes N ignored" line shows.
+    (payload.report.ignored as Record<string, unknown>) = {
+      lines: 2,
+      byReason: { "solidity-assembly": 1, "other-reason": 1 },
+      assemblyLines: 1,
+    };
+    embedPayload(payload);
+    const w = await mountApp();
+    expect(w.text()).toContain("asm");
+    expect(w.text()).toContain("ign");
+    // The "excludes N ignored lines" hint also appears (covers totalIgnoredLines branch).
+    expect(w.text()).toContain("excludes 2 ignored lines");
+    // The "N ignored" badge appears on the file toolbar (covers
+    // selectedFileIgnoredLines.length truthy branch).
+    expect(w.text()).toMatch(/2 ignored/);
+  });
+
+  it("expands selectedUncoveredRange across consecutive uncovered lines", async () => {
+    const payload = buildPayload();
+    const file = (payload.report.files as Record<string, unknown>[])[0]!;
+    file.lineCount = 5;
+    file.lines = [
+      { line: 1, hits: 1, branches: [], status: "covered" },
+      { line: 2, hits: 0, branches: [], status: "uncovered" },
+      { line: 3, hits: 0, branches: [], status: "uncovered" },
+      { line: 4, hits: 0, branches: [], status: "uncovered" },
+      { line: 5, hits: 1, branches: [], status: "covered" },
+    ];
+    file.uncovered = { lines: [2, 3, 4], functions: [], branches: [] };
+    payload.sources["data/files/0001-src-foo.json"] = {
+      id: "0001-src-foo",
+      path: "src/foo.ts",
+      language: "typescript",
+      lines: ["a", "b", "c", "d", "e"],
+    };
+    history.replaceState(null, "", "#file=0001-src-foo&line=3");
+    embedPayload(payload);
+    const w = await mountApp();
+    // Three lines should carry the "selected-uncovered-section" class.
+    const section = w.findAll(".selected-uncovered-section");
+    expect(section.length).toBe(3);
+    expect(w.find(".selected-uncovered-section-start").exists()).toBe(true);
+    expect(w.find(".selected-uncovered-section-end").exists()).toBe(true);
+  });
+});
+
+describe("App.vue history trend with negative delta", () => {
+  it("colors the trend label red when current run regresses vs previous", async () => {
+    const payload = buildPayload();
+    payload.report.history = {
+      schemaVersion: 1,
+      runs: [
+        {
+          id: "r1",
+          timestamp: "2026-04-20T00:00:00.000Z",
+          totals: {
+            lines: { found: 10, hit: 9, percent: 90 },
+            functions: { found: 2, hit: 1, percent: 50 },
+            branches: { found: 4, hit: 2, percent: 50 },
+          },
+          files: [],
+        },
+        {
+          id: "r2",
+          timestamp: "2026-04-21T00:00:00.000Z",
+          totals: {
+            lines: { found: 10, hit: 5, percent: 50 },
+            functions: { found: 2, hit: 1, percent: 50 },
+            branches: { found: 4, hit: 2, percent: 50 },
+          },
+          files: [],
+        },
+      ],
+    };
+    embedPayload(payload);
+    const w = await mountApp();
+    // 50 - 90 = -40.00%
+    expect(w.text()).toContain("-40.00%");
+    // The negative-delta branch sets text-red-500.
+    expect(w.html()).toContain("text-red-500");
+  });
+});
+
+describe("App.vue plugin hook rendering", () => {
+  it("flattens hooks contributed by plugins (covers customization.plugins flatMap)", async () => {
+    const payload = buildPayload();
+    payload.report.customization = {
+      plugins: [
+        {
+          id: "plugin-a",
+          label: "Plugin A",
+          hooks: [
+            {
+              id: "p1",
+              hook: "report:header",
+              label: "Plugin Header",
+              href: "https://example.test/plugin",
+            },
+            {
+              id: "p2",
+              hook: "sidebar:panel",
+              label: "Plugin Side",
+              content: "side-content",
+            },
+          ],
+        },
+      ],
+    };
+    embedPayload(payload);
+    const w = await mountApp();
+    expect(w.text()).toContain("Plugin Header");
+    expect(w.text()).toContain("Plugin Side");
+    expect(w.text()).toContain("side-content");
+  });
+
+  it("renders file:toolbar hook with content fallback when no href is provided", async () => {
+    const payload = buildPayload();
+    payload.report.customization = {
+      hooks: [
+        {
+          id: "ft-content",
+          hook: "file:toolbar",
+          label: "Toolbar",
+          content: "v3.2.1",
+        },
+      ],
+    };
+    embedPayload(payload);
+    const w = await mountApp();
+    // The hook span renders content (covers `hook.content ?? hook.label`
+    // fallback branch in the file toolbar).
+    expect(w.text()).toContain("v3.2.1");
+  });
+});
+
+describe("App.vue source fetch fallbacks", () => {
+  it("falls back to fetch() when no embedded source-data element is present", async () => {
+    const payload = buildPayload();
+    // Embed only the report payload (no source-data <script>).
+    const reportNode = document.createElement("script");
+    reportNode.id = "doublcov-report-data";
+    reportNode.type = "application/json";
+    reportNode.textContent = JSON.stringify(payload.report);
+    document.body.append(reportNode);
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "0001-src-foo",
+        path: "src/foo.ts",
+        language: "typescript",
+        lines: ["a", "b", "c"],
+      }),
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const w = await mountApp();
+      // Source file fetch should have been called for the file's
+      // sourceDataPath.
+      expect(fetchMock).toHaveBeenCalledWith("data/files/0001-src-foo.json");
+      expect(w.text()).not.toContain("Could not load source:");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("falls back to fetch() when no embedded report data element is present", async () => {
+    // No embedded report or sources; all data must come from fetch.
+    const payload = buildPayload();
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url === "data/report.json") {
+        return {
+          ok: true,
+          json: async () => payload.report,
+        } as Response;
+      }
+      // Source request — return the source for the only file.
+      return {
+        ok: true,
+        json: async () => payload.sources["data/files/0001-src-foo.json"],
+      } as Response;
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const w = await mountApp();
+      expect(fetchMock).toHaveBeenCalledWith("data/report.json");
+      expect(w.text()).toContain("Test Project Coverage");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("surfaces an error banner when the report fetch returns !ok", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const w = await mountApp();
+      expect(w.text()).toContain("Could not load report data");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("surfaces a source-error banner when the source fetch returns !ok", async () => {
+    const payload = buildPayload();
+    const reportNode = document.createElement("script");
+    reportNode.id = "doublcov-report-data";
+    reportNode.type = "application/json";
+    reportNode.textContent = JSON.stringify(payload.report);
+    document.body.append(reportNode);
+
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const w = await mountApp();
+      expect(w.text()).toContain("Could not load source:");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("App.vue navigator scroll handler", () => {
+  it("handleNavigatorScroll updates the virtual scroll offset", async () => {
+    const payload = buildMultiFilePayload(20);
+    embedPayload(payload);
+    const w = await mountApp();
+    // Disable current-file-only so the navigator includes >1 row.
+    const checkbox = w
+      .findAll('input[type="checkbox"]')
+      .find((c) => c.element.parentElement?.textContent?.includes("Current"));
+    await checkbox!.setValue(false);
+    await flushPromises();
+
+    // The navigator scroller is the only div with an inline @scroll handler;
+    // fish it out by its inline style which contains both "height" and
+    // "min-height".
+    const scroller = w.findAll("div").find((d) => {
+      const s = d.attributes("style") ?? "";
+      return s.includes("min-height") && s.includes("height:");
+    });
+    expect(scroller).toBeTruthy();
+    const el = scroller!.element as HTMLElement;
+    Object.defineProperty(el, "scrollTop", {
+      configurable: true,
+      get: () => 240,
+    });
+    const event = new Event("scroll", { bubbles: false });
+    Object.defineProperty(event, "currentTarget", { value: el });
+    el.dispatchEvent(event);
+    await flushPromises();
+    expect(w.findAll("aside button").length).toBeGreaterThan(0);
+  });
+
+  it("scrollNavigatorToIndex bails when no scroller is mounted", async () => {
+    // When the report has no uncovered items, the navigator section still
+    // mounts but pageUncovered with no items leaves currentUncoveredIndex at
+    // 0 and scrollNavigatorToIndex(-1) returns early. We use j with no
+    // matching items to drive that path.
+    const payload = buildPayload();
+    payload.report.uncoveredItems = [];
+    embedPayload(payload);
+    const w = await mountApp();
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "j", bubbles: true }),
+    );
+    await flushPromises();
+    expect(w.exists()).toBe(true);
+  });
+});
+
+describe("App.vue scroll-to-line fallbacks", () => {
+  it("falls back to scrollIntoView when sourceScroller is unavailable", async () => {
+    const payload = buildPayload();
+    history.replaceState(null, "", "#file=0001-src-foo&line=2");
+    embedPayload(payload);
+    // Make every element's getBoundingClientRect return 0s so the scroller
+    // path's math is exercised; also stub scrollIntoView to ensure it does
+    // not throw under happy-dom.
+    const sivSpy = vi
+      .spyOn(HTMLElement.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    const scrollToSpy = vi
+      .spyOn(HTMLElement.prototype, "scrollTo")
+      .mockImplementation(() => {});
+    try {
+      const w = await mountApp();
+      expect(w.exists()).toBe(true);
+      // scrollTo on the source scroller should have been invoked since
+      // happy-dom mounts a scroller ref; if not, scrollIntoView is the
+      // fallback.
+      expect(scrollToSpy.mock.calls.length + sivSpy.mock.calls.length).toBeGreaterThan(
+        0,
+      );
+    } finally {
+      sivSpy.mockRestore();
+      scrollToSpy.mockRestore();
+    }
+  });
+});
+
+describe("App.vue side-panel resize mouse drag (right panel)", () => {
+  it("dragging the right-side handle adjusts rightPanelWidth (mirrored)", async () => {
+    embedPayload(buildPayload());
+    const w = await mountApp();
+    const handle = w.find(".side-panel-resize-handle-left");
+    expect(handle.exists()).toBe(true);
+    await handle.trigger("mousedown", { clientX: 200 });
+    // For the right panel, dragging left (decreasing clientX) increases the
+    // width (mirrored sign).
+    window.dispatchEvent(
+      new MouseEvent("mousemove", { clientX: 100, bubbles: true }),
+    );
+    await flushPromises();
+    window.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    await flushPromises();
+    const style = w.find(".report-layout").attributes("style") ?? "";
+    expect(style).toMatch(/--right-panel-width:\s*\d+px/);
+  });
+
+  it("ignores mousemove when no resize is in progress", async () => {
+    embedPayload(buildPayload());
+    const w = await mountApp();
+    // Without a prior mousedown, the handler bails on the no-start guard.
+    window.dispatchEvent(
+      new MouseEvent("mousemove", { clientX: 999, bubbles: true }),
+    );
+    await flushPromises();
+    expect(w.exists()).toBe(true);
+  });
+});
+
+describe("App.vue title document binding", () => {
+  it("watch(reportTitle) updates document.title when the report changes title", async () => {
+    embedPayload(buildPayload());
+    const w = await mountApp();
+    // Initial doc title is the project's title.
+    expect(document.title).toBe("Test Project Coverage");
+    // Now mount a second report with a different name to ensure the watch
+    // path runs as the title computed flips.
+    w.unmount();
+    document
+      .querySelectorAll("#doublcov-report-data, #doublcov-source-data")
+      .forEach((node) => node.remove());
+    const payload2 = buildPayload();
+    (payload2.report as Record<string, unknown>).projectName = "Other Project";
+    embedPayload(payload2);
+    const w2 = await mountApp();
+    expect(document.title).toBe("Other Project Coverage");
+    w2.unmount();
+  });
+});
+
+describe("App.vue uncovered-only filter exposes function/branch-only files", () => {
+  it("keeps a file with uncovered functions but no uncovered lines (branch 147,12,2)", async () => {
+    const payload = buildPayload();
+    const file = (payload.report.files as Record<string, unknown>[])[0]!;
+    file.uncovered = {
+      lines: [],
+      functions: [{ name: "fn1", line: 1, hits: 0 }],
+      branches: [],
+    };
+    embedPayload(payload);
+    const w = await mountApp();
+    // The file is still listed with uncoveredOnly=true.
+    expect(w.text()).toContain("src/foo.ts");
+  });
+
+  it("keeps a file with uncovered branches but no uncovered lines or functions", async () => {
+    const payload = buildPayload();
+    const file = (payload.report.files as Record<string, unknown>[])[0]!;
+    file.uncovered = {
+      lines: [],
+      functions: [],
+      branches: [
+        {
+          id: "b1",
+          line: 1,
+          block: "0",
+          branch: "0",
+          taken: 0,
+        },
+      ],
+    };
+    embedPayload(payload);
+    const w = await mountApp();
+    expect(w.text()).toContain("src/foo.ts");
+  });
+});

@@ -288,17 +288,24 @@ onMounted(async () => {
   readHashState();
   try {
     report.value = parseReportPayload(await readReportPayload());
-    applyDefaultReportTheme();
-    if (!report.value.files.some((file) => file.id === selectedFileId.value)) {
-      selectedFileId.value = report.value.files[0]?.id ?? "";
-      selectedLine.value = null;
-    }
-    if (selectedLine.value)
-      sourceWindowStart.value = Math.max(1, selectedLine.value - 120);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : String(caught);
+    return;
+  }
+  applyDefaultReportTheme();
+  if (!report.value.files.some((file) => file.id === selectedFileId.value)) {
+    selectedFileId.value = report.value.files[0]?.id ?? "";
+    selectedLine.value = null;
+  }
+  if (selectedLine.value)
+    sourceWindowStart.value = Math.max(1, selectedLine.value - 120);
+  sourceError.value = null;
+  try {
     await loadSelectedSource();
     await scrollToSelectedLine();
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught);
+    sourceError.value =
+      caught instanceof Error ? caught.message : String(caught);
   }
 });
 
@@ -433,7 +440,10 @@ async function loadSelectedSource(): Promise<void> {
   if (embeddedPayload !== undefined) {
     sourceCache.value = {
       ...sourceCache.value,
-      [file.id]: parseSourcePayload(embeddedPayload, file.path),
+      [file.id]: parseSourcePayload(embeddedPayload, file.path, {
+        id: file.id,
+        path: file.path,
+      }),
     };
     return;
   }
@@ -441,7 +451,10 @@ async function loadSelectedSource(): Promise<void> {
   if (!response.ok) throw new Error(`Could not load source for ${file.path}.`);
   sourceCache.value = {
     ...sourceCache.value,
-    [file.id]: parseSourcePayload(await response.json(), file.path),
+    [file.id]: parseSourcePayload(await response.json(), file.path, {
+      id: file.id,
+      path: file.path,
+    }),
   };
 }
 
