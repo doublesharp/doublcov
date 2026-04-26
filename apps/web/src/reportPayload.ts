@@ -11,7 +11,6 @@ import {
   type LineCoverage,
   type SourceFileCoverage,
   type SourceFilePayload,
-  type SourceLanguage,
   type UncoveredItem,
   type UncoveredKind,
 } from "@0xdoublesharp/doublcov-core";
@@ -101,7 +100,7 @@ export function parseSourcePayload(
   return {
     id: input.id,
     path: input.path,
-    language: input.language as SourceLanguage,
+    language: input.language,
     lines: input.lines,
   };
 }
@@ -130,7 +129,7 @@ function sanitizeSourceFileCoverage(input: unknown): SourceFileCoverage | null {
     id: input.id,
     path: input.path,
     displayPath: input.displayPath,
-    language: input.language as SourceLanguage,
+    language: input.language,
     lineCount: sanitizeNumber(input.lineCount),
     lines: sanitizeArray(input.lines, sanitizeLineCoverage),
     functions: sanitizeArray(input.functions, sanitizeFunctionDetail),

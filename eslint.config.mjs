@@ -20,8 +20,8 @@ export default tseslint.config(
       "apps/web/dist/**",
       "tests/e2e/**",
       "playwright.config.ts",
-      ".stryker-tmp/**",
-      "reports/**",
+      "**/.stryker-tmp/**",
+      "**/reports/**",
     ],
   },
   js.configs.recommended,
@@ -62,12 +62,20 @@ export default tseslint.config(
         "warn",
         { fixStyle: "inline-type-imports" },
       ],
-      "@typescript-eslint/no-non-null-assertion": "warn",
+      // Non-null assertions are used deliberately in this codebase to mark
+      // documented unreachable defensive fallbacks (see comments at sites in
+      // report.ts) and to avoid `?? defaultLcov` chains when the surrounding
+      // code already guarantees non-null. Disabled rather than litter every
+      // site with eslint-disable comments.
+      "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/require-await": "warn",
+      // Builder prepareRun methods are typed `Promise<...>` because most
+      // implementations DO need async I/O. The simple ones don't, and
+      // forcing `Promise.resolve(...)` everywhere obscures the surface.
+      "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-unnecessary-type-assertion": "warn",
       "@typescript-eslint/no-redundant-type-constituents": "warn",
       "@typescript-eslint/no-explicit-any": "warn",

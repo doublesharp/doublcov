@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import http from "node:http";
+import type { AddressInfo } from "node:net";
 import { serveRequest } from "../src/server.js";
 
 let tempRoot: string;
@@ -39,7 +40,7 @@ describe("serveRequest lease endpoints", () => {
       server.listen(0, "127.0.0.1", resolve),
     );
     try {
-      const address = server.address() as import("node:net").AddressInfo;
+      const address = server.address() as AddressInfo;
       const result = await new Promise<{ status: number; body: string }>(
         (resolve, reject) => {
           http

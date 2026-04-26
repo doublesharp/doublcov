@@ -188,5 +188,5 @@ function parseBrdaTaken(
   // would silently masquerade as a not-taken branch. Reject it instead.
   if (value === "") return INVALID_TAKEN;
   const parsed = parseNonNegativeInteger(value);
-  return parsed === null ? INVALID_TAKEN : parsed;
+  return parsed ?? INVALID_TAKEN;
 }

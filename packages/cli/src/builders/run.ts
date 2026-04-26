@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import type { BuildOptions, BuilderOptions } from "../args.js";
-import { DEFAULT_HISTORY, DEFAULT_OUT, DEFAULT_SOURCES } from "../args.js";
+import { DEFAULT_OUT } from "../args.js";
 import { buildReport, readReportConfig, type ReportConfig } from "../build.js";
 import { openReport } from "../server.js";
 import {
@@ -102,8 +102,7 @@ export function resolveBuilderOptions(
     : (config.sources ??
       projectDefaults.sources ??
       builder.defaultSources ??
-      options.sources ??
-      DEFAULT_SOURCES);
+      options.sources);
   const sourceExtensions = options.explicit?.sourceExtensions
     ? options.sourceExtensions
     : (config.sourceExtensions ??
@@ -112,10 +111,7 @@ export function resolveBuilderOptions(
       options.sourceExtensions);
   const history = options.explicit?.history
     ? options.history
-    : (config.history ??
-      projectDefaults.history ??
-      options.history ??
-      DEFAULT_HISTORY);
+    : (config.history ?? projectDefaults.history ?? options.history);
   const name = options.explicit?.name
     ? options.name
     : (config.name ?? projectDefaults.name ?? options.name);

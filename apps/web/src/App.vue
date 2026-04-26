@@ -865,7 +865,7 @@ function readStoredSidePanelWidth(panel: "left" | "right"): number {
           <h1 class="text-2xl font-semibold tracking-normal">
             {{ reportTitle }}
           </h1>
-          <p class="muted text-sm" v-if="report">
+          <p v-if="report" class="muted text-sm">
             Generated {{ new Date(report.generatedAt).toLocaleString() }} ·
             {{ report.files.length }} files
           </p>

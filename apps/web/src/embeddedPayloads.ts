@@ -1,7 +1,7 @@
 export const EMBEDDED_REPORT_ELEMENT_ID = "doublcov-report-data";
 export const EMBEDDED_SOURCES_ELEMENT_ID = "doublcov-source-data";
 
-export function readEmbeddedJsonElement(id: string): unknown | undefined {
+export function readEmbeddedJsonElement(id: string): unknown {
   const text = document.getElementById(id)?.textContent;
   if (!text) return undefined;
   try {
@@ -11,7 +11,7 @@ export function readEmbeddedJsonElement(id: string): unknown | undefined {
   }
 }
 
-export function readEmbeddedReportPayload(): unknown | undefined {
+export function readEmbeddedReportPayload(): unknown {
   return readEmbeddedJsonElement(EMBEDDED_REPORT_ELEMENT_ID);
 }
 
