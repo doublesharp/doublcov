@@ -6,32 +6,19 @@
       "project": ["scripts/**/*.{ts,mjs}", "*.{ts,mjs}"]
     },
     "packages/coverage-core": {
-      "entry": ["src/index.ts!", "test/**/*.test.ts"],
+      "entry": ["test/**/*.test.ts"],
       "project": ["src/**/*.ts", "test/**/*.ts"]
     },
     "packages/cli": {
-      "entry": ["src/bin.ts!", "src/index.ts!", "test/**/*.test.ts"],
+      "entry": ["test/**/*.test.ts"],
       "project": ["src/**/*.ts", "test/**/*.ts"]
     },
     "apps/web": {
-      "entry": ["src/main.ts!", "test/**/*.test.ts"],
+      "entry": ["test/**/*.test.ts"],
       "project": ["src/**/*.{ts,vue}", "test/**/*.ts"]
     }
   },
   "ignoreExportsUsedInFile": true,
-  "ignoreBinaries": [
-    "forge",
-    "hardhat",
-    "vitest",
-    "jest",
-    "c8",
-    "node",
-    "pytest",
-    "cargo",
-    "lcov",
-    "python",
-    "npx"
-  ],
   "ignoreDependencies": [
     "tailwindcss",
     "madge",
