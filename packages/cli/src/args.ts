@@ -58,6 +58,23 @@ export const DEFAULT_HISTORY = ".doublcov/history.json";
 const DEFAULT_PORT = 0;
 export const DEFAULT_SERVE_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_CUSTOMIZATION = "doublcov.config.json";
+const VALUE_FLAGS = new Set([
+  "bytecode",
+  "customization",
+  "debug",
+  "diagnostic",
+  "dir",
+  "extensions",
+  "history",
+  "lcov",
+  "mode",
+  "name",
+  "out",
+  "port",
+  "sources",
+  "theme",
+  "timeout",
+]);
 
 export type CliCommand =
   | { name: "build"; options: BuildOptions }
@@ -326,6 +343,9 @@ function parseFlags(
       continue;
     }
     const next = argv[index + 1];
+    if (VALUE_FLAGS.has(key) && (!next || next.startsWith("--"))) {
+      throw new Error(`Missing value for --${key}.`);
+    }
     flags[key] = next?.startsWith("--") ? undefined : next;
     if (next && !next.startsWith("--")) index += 1;
   }

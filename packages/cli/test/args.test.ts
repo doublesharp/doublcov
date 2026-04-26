@@ -377,7 +377,13 @@ describe("parseCommand", () => {
     expect(() => parseCommand(["serve", "--timeout", "-5m"])).toThrow(
       /Invalid --timeout/,
     );
+    // `--timeout ""` is rejected by parseFlags as a missing value before it
+    // reaches parseTimeout. `--timeout=` (inline empty) reaches parseTimeout
+    // and produces "Invalid --timeout".
     expect(() => parseCommand(["serve", "--timeout", ""])).toThrow(
+      /Missing value for --timeout/,
+    );
+    expect(() => parseCommand(["serve", "--timeout="])).toThrow(
       /Invalid --timeout/,
     );
     expect(() => parseCommand(["serve", "--timeout", "1.5h"])).toThrow(
@@ -446,9 +452,7 @@ describe("parseCommand", () => {
   });
 
   it("filters empty entries from comma-separated lists", () => {
-    expect(
-      parseCommand(["build", "--sources", ",,,a,,b,,,"]),
-    ).toMatchObject({
+    expect(parseCommand(["build", "--sources", ",,,a,,b,,,"])).toMatchObject({
       options: { sources: ["a", "b"] },
     });
     expect(
@@ -464,16 +468,19 @@ describe("parseCommand", () => {
     );
   });
 
-  it("does not allow --foo to consume a following CLI flag as its value", () => {
-    // Bug probe: we expect parseFlags to NOT swallow `--bar` as the value
-    // of `--foo`. Here `--port` should remain unset (default 0) instead of
-    // being assigned to "--unknown-flag", which would produce an Invalid
-    // --port error.
-    expect(
-      parseCommand(["forge", "--port", "--unknown-flag"]),
-    ).toMatchObject({
-      options: { port: 0 },
-    });
+  it("rejects missing values for known value-taking flags", () => {
+    expect(() => parseCommand(["build", "--lcov", "--out", "report"])).toThrow(
+      /Missing value for --lcov/,
+    );
+    expect(() => parseCommand(["build", "--out"])).toThrow(
+      /Missing value for --out/,
+    );
+    expect(() =>
+      parseCommand(["build", "--sources", "--mode", "static"]),
+    ).toThrow(/Missing value for --sources/);
+    expect(() => parseCommand(["open", "--dir"])).toThrow(
+      /Missing value for --dir/,
+    );
   });
 
   it("throws on missing value for a repeated --diagnostic flag", () => {
