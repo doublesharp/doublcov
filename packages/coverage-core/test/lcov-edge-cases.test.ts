@@ -38,6 +38,21 @@ end_of_record`);
     expect(record?.lines.get(2)).toBe(3);
   });
 
+  it("rejects DA records with empty, exponent, decimal, or hex numeric fields", () => {
+    const [record] = parseLcov(`SF:src/Foo.ts
+DA:1,
+DA:2,1e1
+DA:3,1.0
+DA:0x10,1
+DA:4,7
+end_of_record`);
+    expect(record?.lines.has(1)).toBe(false);
+    expect(record?.lines.has(2)).toBe(false);
+    expect(record?.lines.has(3)).toBe(false);
+    expect(record?.lines.has(16)).toBe(false);
+    expect(record?.lines.get(4)).toBe(7);
+  });
+
   it("flushes a record when SF appears again before end_of_record", () => {
     // Two SF records inside one block: should be treated as separate records.
     const records = parseLcov(`SF:src/a.ts
@@ -87,6 +102,17 @@ end_of_record`);
     expect(record?.totals.branches.hit).toBe(0);
   });
 
+  it("rejects BRDA records with malformed line or taken numeric fields", () => {
+    const [record] = parseLcov(`SF:src/Foo.ts
+BRDA:1.0,0,0,1
+BRDA:2,0,0,1e1
+BRDA:0x10,0,0,1
+BRDA:3,0,0,1
+end_of_record`);
+    expect(record?.branches).toHaveLength(1);
+    expect(record?.branches[0]).toMatchObject({ line: 3, taken: 1 });
+  });
+
   it("preserves unicode and arbitrary characters in source paths", () => {
     const path = "src/日本/ファイル ☃.ts";
     const [record] = parseLcov(`SF:${path}
@@ -107,10 +133,7 @@ end_of_record`);
   it("ignores blank lines and trailing whitespace between records", () => {
     const text = `\n\nSF:src/a.ts   \n\nDA:1,1\n  \nend_of_record  \n\n\nSF:src/b.ts\nDA:2,1\nend_of_record\n\n`;
     const records = parseLcov(text);
-    expect(records.map((r) => r.sourceFile)).toEqual([
-      "src/a.ts",
-      "src/b.ts",
-    ]);
+    expect(records.map((r) => r.sourceFile)).toEqual(["src/a.ts", "src/b.ts"]);
   });
 
   it("attaches an orphan FN with no FNDA as zero hits", () => {
@@ -136,6 +159,24 @@ DA:20,1
 end_of_record`);
     expect(record?.functions).toHaveLength(1);
     expect(record?.functions[0]).toMatchObject({ name: "real", line: 20 });
+  });
+
+  it("rejects FN/FNDA records with malformed numeric fields", () => {
+    const [record] = parseLcov(`SF:src/Foo.ts
+FN:1.0,fractionalLine
+FN:0x10,hexLine
+FN:20,real
+FNDA:,real
+FNDA:1e1,real
+FNDA:3,real
+DA:20,1
+end_of_record`);
+    expect(record?.functions).toHaveLength(1);
+    expect(record?.functions[0]).toMatchObject({
+      name: "real",
+      line: 20,
+      hits: 3,
+    });
   });
 
   it("silently drops FNDA records that lack the comma-separated name", () => {

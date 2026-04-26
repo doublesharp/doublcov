@@ -29,7 +29,11 @@ export function registerDiagnosticParser(parser: DiagnosticParser): void {
     const index = DIAGNOSTIC_PARSERS.findIndex(
       (candidate) => candidate.id === parser.id,
     );
-    if (index !== -1) DIAGNOSTIC_PARSERS.splice(index, 1, parser);
+    if (index !== -1) {
+      DIAGNOSTIC_PARSERS.splice(index, 1, parser);
+    } else {
+      DIAGNOSTIC_PARSERS.push(parser);
+    }
   } else {
     DIAGNOSTIC_PARSERS.push(parser);
   }
@@ -62,8 +66,7 @@ export function parseDiagnostics(
     try {
       parsed = parser.parse(input.content);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       return [
         {
           id: `diagnostic-parser-${inputIndex + 1}-error`,
@@ -104,13 +107,16 @@ function parseDiagnosticLines(
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line, index) => {
-      const location = line.match(/(?<file>[\w./\\-]+\.sol)(?::(?<line>\d+))?/);
+      const location = line.match(
+        /(?<file>(?:[A-Za-z]:[\\/])?[^:\r\n]*?\.sol)(?::(?<line>\d+))?/,
+      );
+      const filePath = location?.groups?.file?.trim();
       return {
         id: `${source}-${index + 1}`,
         source,
         severity: "info",
         message: line,
-        ...(location?.groups?.file ? { filePath: location.groups.file } : {}),
+        ...(filePath ? { filePath } : {}),
         ...(location?.groups?.line
           ? { line: Number(location.groups.line) }
           : {}),

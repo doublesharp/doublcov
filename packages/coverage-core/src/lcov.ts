@@ -51,14 +51,9 @@ export function parseLcov(input: string): LcovRecord[] {
         break;
       case "DA": {
         const [lineNumber, hits] = value.split(",");
-        const parsedLine = Number(lineNumber);
-        const parsedHits = Number(hits);
-        if (
-          Number.isInteger(parsedLine) &&
-          parsedLine >= 1 &&
-          Number.isInteger(parsedHits) &&
-          parsedHits >= 0
-        ) {
+        const parsedLine = parsePositiveInteger(lineNumber);
+        const parsedHits = parseNonNegativeInteger(hits);
+        if (parsedLine !== null && parsedHits !== null) {
           current.lines.set(parsedLine, parsedHits);
         }
         break;
@@ -66,9 +61,9 @@ export function parseLcov(input: string): LcovRecord[] {
       case "FN":
       case "FNA": {
         const [lineNumber, rawName] = splitOnce(value, ",");
-        const parsedLine = Number(lineNumber);
+        const parsedLine = parsePositiveInteger(lineNumber);
         const name = rawName.trim();
-        if (Number.isInteger(parsedLine) && parsedLine >= 1 && name) {
+        if (parsedLine !== null && name) {
           functionLines.set(name, parsedLine);
           const existing = current.functions.find((fn) => fn.name === name);
           if (existing) {
@@ -84,8 +79,8 @@ export function parseLcov(input: string): LcovRecord[] {
       case "FNDA": {
         const [hits, rawName] = splitOnce(value, ",");
         const name = rawName.trim();
-        const parsedHits = Number(hits);
-        if (!name || !Number.isInteger(parsedHits) || parsedHits < 0) break;
+        const parsedHits = parseNonNegativeInteger(hits);
+        if (!name || parsedHits === null) break;
         const existing = current.functions.find((fn) => fn.name === name);
         if (existing) {
           existing.hits = parsedHits;
@@ -96,10 +91,9 @@ export function parseLcov(input: string): LcovRecord[] {
       }
       case "BRDA": {
         const [lineNumber, block, branch, taken] = value.split(",");
-        const parsedLine = Number(lineNumber);
+        const parsedLine = parsePositiveInteger(lineNumber);
         if (
-          Number.isInteger(parsedLine) &&
-          parsedLine >= 1 &&
+          parsedLine !== null &&
           block !== undefined &&
           branch !== undefined
         ) {
@@ -173,6 +167,17 @@ function splitOnce(value: string, separator: string): [string, string] {
   return [value.slice(0, index), value.slice(index + 1)];
 }
 
+function parsePositiveInteger(value: string | undefined): number | null {
+  const parsed = parseNonNegativeInteger(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+function parseNonNegativeInteger(value: string | undefined): number | null {
+  if (value === undefined || !/^(?:0|[1-9]\d*)$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
 const INVALID_TAKEN = Symbol("invalid-taken");
 
 function parseBrdaTaken(
@@ -182,6 +187,6 @@ function parseBrdaTaken(
   // An empty taken slot (BRDA:1,0,0,) is malformed — Number("") yields 0 which
   // would silently masquerade as a not-taken branch. Reject it instead.
   if (value === "") return INVALID_TAKEN;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : INVALID_TAKEN;
+  const parsed = parseNonNegativeInteger(value);
+  return parsed === null ? INVALID_TAKEN : parsed;
 }

@@ -54,6 +54,9 @@ describe("registerDiagnosticParser", () => {
       registerDiagnosticParser({ id: "desync", label: "v2", parse: () => [] }),
     ).not.toThrow();
     expect(resolveDiagnosticParser("desync")?.label).toBe("v2");
+    expect(DIAGNOSTIC_PARSERS.some((parser) => parser.id === "desync")).toBe(
+      true,
+    );
   });
 });
 
@@ -137,6 +140,27 @@ describe("parseDiagnostics", () => {
     ]);
     const ids = diagnostics.map((diagnostic) => diagnostic.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("extracts Foundry diagnostic locations with spaces, scoped dirs, and Windows drives", () => {
+    const diagnostics = parseDiagnostics([
+      {
+        parser: "foundry-debug",
+        content: [
+          "contracts/My Contract.sol:7: uncovered",
+          "lib/@scope/Foo.sol:12: uncovered",
+          "C:\\repo\\src\\Foo.sol:3: uncovered",
+        ].join("\n"),
+      },
+    ]);
+    expect(diagnostics.map((diagnostic) => diagnostic.filePath)).toEqual([
+      "contracts/My Contract.sol",
+      "lib/@scope/Foo.sol",
+      "C:\\repo\\src\\Foo.sol",
+    ]);
+    expect(diagnostics.map((diagnostic) => diagnostic.line)).toEqual([
+      7, 12, 3,
+    ]);
   });
 });
 

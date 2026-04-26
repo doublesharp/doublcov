@@ -14,8 +14,7 @@ end_of_record`,
       sourceFiles: [
         {
           path: "src/server.go",
-          content:
-            "func (r *Receiver) Method() {\n  return\n}\n",
+          content: "func (r *Receiver) Method() {\n  return\n}\n",
         },
       ],
     });
@@ -33,9 +32,7 @@ FN:1,_Z4initv
 FNDA:0,_Z4initv
 DA:1,0
 end_of_record`,
-      sourceFiles: [
-        { path: "src/main.go", content: "func init() {\n}\n" },
-      ],
+      sourceFiles: [{ path: "src/main.go", content: "func init() {\n}\n" }],
     });
     expect(bundle.report.uncoveredItems).toEqual(
       expect.arrayContaining([
@@ -166,8 +163,7 @@ end_of_record`,
       sourceFiles: [
         {
           path: "src/lib.rs",
-          content:
-            "// no function here\n// nothing\n// still nothing\n",
+          content: "// no function here\n// nothing\n// still nothing\n",
         },
       ],
     });
@@ -190,14 +186,16 @@ end_of_record`,
       sourceFiles: [
         {
           path: "src/closure.rs",
-          content:
-            "fn outer() {\n    let f = |x| x + 1;\n    f(2);\n}\n",
+          content: "fn outer() {\n    let f = |x| x + 1;\n    f(2);\n}\n",
         },
       ],
     });
     expect(bundle.report.uncoveredItems).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: "function", label: "Closure at line 2" }),
+        expect.objectContaining({
+          kind: "function",
+          label: "Closure at line 2",
+        }),
       ]),
     );
   });
@@ -209,9 +207,7 @@ describe("buildCoverageBundle - findSourceContent edge cases", () => {
       lcov: `SF:/abs/work/repo/src/foo.ts
 DA:1,1
 end_of_record`,
-      sourceFiles: [
-        { path: "src/foo.ts", content: "console.log('hi');\n" },
-      ],
+      sourceFiles: [{ path: "src/foo.ts", content: "console.log('hi');\n" }],
     });
     expect(
       bundle.report.diagnostics.filter(
@@ -225,9 +221,7 @@ end_of_record`,
       lcov: `SF:obj/output/Foo.ts
 DA:1,1
 end_of_record`,
-      sourceFiles: [
-        { path: "totally/different/dir/Foo.ts", content: "x;\n" },
-      ],
+      sourceFiles: [{ path: "totally/different/dir/Foo.ts", content: "x;\n" }],
     });
     expect(
       bundle.report.diagnostics.filter(
@@ -256,14 +250,30 @@ end_of_record`,
     ).toHaveLength(1);
   });
 
+  it("does not pick an arbitrary source when suffix matches are ambiguous", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `SF:src/Foo.ts
+DA:1,1
+end_of_record`,
+      sourceFiles: [
+        { path: "packages/a/src/Foo.ts", content: "first;\n" },
+        { path: "packages/b/src/Foo.ts", content: "second;\n" },
+      ],
+    });
+    expect(
+      bundle.report.diagnostics.filter(
+        (diagnostic) => diagnostic.source === "doublcov",
+      ),
+    ).toHaveLength(1);
+    expect(bundle.sourcePayloads[0]?.lines).toEqual([""]);
+  });
+
   it("emits a missing-source diagnostic when no match is possible at all", () => {
     const bundle = buildCoverageBundle({
       lcov: `SF:src/Missing.ts
 DA:1,1
 end_of_record`,
-      sourceFiles: [
-        { path: "src/Other.ts", content: "x;\n" },
-      ],
+      sourceFiles: [{ path: "src/Other.ts", content: "x;\n" }],
     });
     expect(
       bundle.report.diagnostics.find(
@@ -279,9 +289,7 @@ end_of_record`,
       lcov: `SF:./src/foo.ts
 DA:1,1
 end_of_record`,
-      sourceFiles: [
-        { path: "src/foo.ts", content: "x;\n" },
-      ],
+      sourceFiles: [{ path: "src/foo.ts", content: "x;\n" }],
     });
     expect(
       bundle.report.diagnostics.filter(

@@ -77,7 +77,11 @@ export function registerLanguageDefinition(language: LanguageDefinition): void {
     const index = LANGUAGE_DEFINITIONS.findIndex(
       (candidate) => candidate.id === normalized.id,
     );
-    if (index !== -1) LANGUAGE_DEFINITIONS.splice(index, 1, normalized);
+    if (index !== -1) {
+      LANGUAGE_DEFINITIONS.splice(index, 1, normalized);
+    } else {
+      LANGUAGE_DEFINITIONS.push(normalized);
+    }
     for (const [extension, candidate] of languagesByExtension) {
       if (candidate.id === normalized.id)
         languagesByExtension.delete(extension);

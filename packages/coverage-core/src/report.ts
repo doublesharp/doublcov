@@ -513,13 +513,13 @@ function findSourceContent(
   const exact = sourcesByPath.get(lcovPath) ?? sourcesByPath.get(stripped);
   if (exact !== undefined) return { content: exact, found: true };
 
-  for (const [sourcePath, content] of sourcesByPath) {
-    if (
+  const suffixMatches = [...sourcesByPath.entries()].filter(
+    ([sourcePath]) =>
       lcovPath.endsWith(`/${sourcePath}`) ||
-      sourcePath.endsWith(`/${stripped}`)
-    ) {
-      return { content, found: true };
-    }
+      sourcePath.endsWith(`/${stripped}`),
+  );
+  if (suffixMatches.length === 1) {
+    return { content: suffixMatches[0]?.[1] ?? "", found: true };
   }
 
   const lcovFileName = stripped.split("/").at(-1);

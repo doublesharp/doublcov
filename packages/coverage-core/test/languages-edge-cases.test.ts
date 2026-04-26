@@ -99,6 +99,9 @@ describe("registerLanguageDefinition", () => {
       }),
     ).not.toThrow();
     expect(resolveLanguageDefinition("desync-lang")?.label).toBe("v2");
+    expect(
+      LANGUAGE_DEFINITIONS.some((language) => language.id === "desync-lang"),
+    ).toBe(true);
   });
 
   it("does not duplicate the language in LANGUAGE_DEFINITIONS when re-registered", () => {
@@ -193,7 +196,7 @@ describe("detectIgnoredLines (Solidity assembly)", () => {
   });
 
   it("matches assembly with explicit memory-safe annotation", () => {
-    const lines = ["  assembly (\"memory-safe\") {", "    let x := 1", "  }"];
+    const lines = ['  assembly ("memory-safe") {', "    let x := 1", "  }"];
     const ignored = detectIgnoredLines(lines, "solidity");
     expect(ignored.map((entry) => entry.line)).toEqual([1, 2, 3]);
   });
