@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.2
+
+Improves hosted report previews and keeps the release docs aligned with the next tag.
+
+- Added OpenGraph and Twitter card metadata plus a bundled preview image to the web document so publicly hosted reports unfurl cleanly in chat clients.
+- Covered the preview metadata behavior in the web and CLI test suites.
+- Updated package versions and pinned action examples for the `v0.4.2` release.
+
 ## 0.4.1
 
 Fixes the standalone-binary release build so v0.4.x SEA artifacts can ship.

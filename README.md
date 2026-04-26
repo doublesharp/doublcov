@@ -180,7 +180,7 @@ doublcov forge --debug coverage.debug --bytecode coverage.bytecode
 
 ## CI And Hosting
 
-Standalone reports can be opened directly from disk. Static reports are better for large projects and can be uploaded to CI artifacts, GitHub Pages, GitLab Pages, Cloudflare Pages, Netlify, Vercel, object storage, or any static file server.
+Standalone reports can be opened directly from disk. Static reports are better for large projects and can be uploaded to CI artifacts, GitHub Pages, GitLab Pages, Cloudflare Pages, Netlify, Vercel, object storage, or any static file server. Hosted reports include OpenGraph and Twitter card metadata plus a bundled preview image, so public links unfurl cleanly in clients such as Discord, Telegram, and Slack.
 
 GitHub Actions example:
 
@@ -191,7 +191,7 @@ GitHub Actions example:
     args: --lcov coverage/lcov.info --sources src --out coverage/report
 ```
 
-Add `version: v0.4.0` when you want to pin the downloaded Doublcov binary instead of using the latest release.
+Add `version: v0.4.2` when you want to pin the downloaded Doublcov binary instead of using the latest release.
 
 Use the npm package for Node projects, the GitHub Action for language-neutral CI, standalone binaries for local non-Node use, and Docker when your CI standardizes on containers. See [CI And Hosting](docs/CI.md) and [Releasing](docs/RELEASING.md).
 

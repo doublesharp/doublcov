@@ -232,6 +232,53 @@ describe("buildReport end-to-end", () => {
     );
   });
 
+  it("preserves social preview metadata and preview assets in standalone output", async () => {
+    const webAssetsDir = path.join(workspace, "web-assets");
+    const previewImageBytes = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    await writeFile(
+      path.join(webAssetsDir, "index.html"),
+      [
+        "<!doctype html>",
+        "<html>",
+        "<head>",
+        '<meta property="og:title" content="Doublcov">',
+        '<meta property="og:image" content="./doublcov-full.png">',
+        '<meta name="twitter:card" content="summary_large_image">',
+        '<link rel="stylesheet" href="./assets/index.css">',
+        "</head>",
+        "<body>",
+        '<div id="app"></div>',
+        '<script type="module" src="./assets/index.js"></script>',
+        "</body>",
+        "</html>",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      path.join(webAssetsDir, "doublcov-full.png"),
+      previewImageBytes,
+    );
+
+    const result = await buildReport(baseOptions({ mode: "standalone" }));
+    const indexHtml = await readFile(
+      path.join(result.outDir, "index.html"),
+      "utf8",
+    );
+
+    expect(indexHtml).toContain('property="og:title" content="Doublcov"');
+    expect(indexHtml).toContain(
+      'property="og:image" content="./doublcov-full.png"',
+    );
+    expect(indexHtml).toContain(
+      'name="twitter:card" content="summary_large_image"',
+    );
+    expect(
+      await readFile(path.join(result.outDir, "doublcov-full.png")),
+    ).toEqual(previewImageBytes);
+  });
+
   it("skips writing history when the resolved history path is empty", async () => {
     const result = await buildReport(
       baseOptions({

@@ -42,7 +42,7 @@ For projects in any language, the official action downloads the release binary, 
 ```
 
 Use the moving major action ref for compatible action updates. Omit `version`
-to download the latest GitHub Release binary, or set `version: v0.4.0` to pin
+to download the latest GitHub Release binary, or set `version: v0.4.2` to pin
 the downloaded CLI binary for reproducible CI.
 
 To install `doublcov` into `PATH` and run multiple commands:
@@ -50,7 +50,7 @@ To install `doublcov` into `PATH` and run multiple commands:
 ```yaml
 - uses: doublesharp/doublcov@v0
   with:
-    version: v0.4.0
+    version: v0.4.2
     install-only: "true"
 
 - run: doublcov build --lcov coverage/lcov.info --sources src --out coverage/report --no-open
@@ -65,6 +65,8 @@ doublcov open coverage/report
 ```
 
 `open` detects the report type. Standalone reports open directly from disk; static reports bind to an available `127.0.0.1` port, open the browser, and run in the foreground. Static preview stops on Ctrl+C or after 30 minutes. The served page shows a prompt that can extend the timeout.
+
+Published reports include OpenGraph and Twitter card metadata plus a bundled preview image. Discord, Telegram, Slack, and similar clients will unfurl the link when the report is reachable over public HTTP(S). Workflow artifacts, `localhost`, and `file://` URLs are not crawlable by those services.
 
 ## Per-Framework CI Snippets
 
