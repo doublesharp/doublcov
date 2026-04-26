@@ -14,7 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint:package": "pnpm --filter @0xdoublesharp/doublcov exec publint --strict",
-    "test": "pnpm -r --if-present run test",
+    "test": "pnpm -r --workspace-concurrency=1 --if-present run test",
     "test:fuzz": "pnpm -r --if-present run test:fuzz",
     "test:e2e": "pnpm run build && playwright test",
     "typecheck": "pnpm -r --if-present run typecheck",

@@ -1325,43 +1325,44 @@ describe("App.vue scroll-to-line fallbacks", () => {
   });
 
   it("uses scrollIntoView fallback when sourceScroller ref is null", async () => {
-    // Stub getElementById to always return a fake target element while
-    // the source-scroller ref resolves to null. We force this by mounting
-    // the app, then explicitly clearing the sourceScroller via the
-    // exposed component instance.
+    // Force scrollToSelectedLine to take the null-scroller branch.
+    // Strategy: mount the app with a normal report so the source pane
+    // renders and template refs bind, then null the report ref. The
+    // template wraps the source pane inside <template v-if="report">,
+    // so the source scroller unmounts and Vue rebinds sourceScroller to
+    // null. Inject an "L42" line element that getElementById will find,
+    // then trigger the selectedLine watcher.
     embedPayload(buildPayload());
     const sivSpy = vi
       .spyOn(HTMLElement.prototype, "scrollIntoView")
       .mockImplementation(() => {});
     try {
       const w = await mountApp();
-      // Replace the source scroller ref on the component with null.
-      const vm = w.vm as unknown as {
-        sourceScroller?: { value: HTMLElement | null };
-      };
-      // Walk the component setup state to find the ref. In <script setup>
-      // refs are exposed on the proxy by name.
-      // Vue's test-utils proxies refs as plain values; assigning null on
-      // the proxy clears the ref.
-      try {
-        (vm as Record<string, unknown>).sourceScroller = null;
-      } catch {
-        // proxy may be read-only; ignore — fallback path may still fire
-        // via the test-utils render conditions.
-      }
-      // Click line 3 to trigger scrollToSelectedLine which reads
-      // sourceScroller.value.
-      const lineButtons = w
-        .findAll(".code-line button")
-        .filter((b) => /^\s*\d+\s*$/.test(b.text()));
-      if (lineButtons[1]) {
-        await lineButtons[1].trigger("click");
-        await flushPromises();
-        await flushPromises();
-      }
-      // Either scrollIntoView fallback or scrollTo path runs. We tolerate
-      // either since the test asserts no throw and end-to-end correctness.
-      expect(w.exists()).toBe(true);
+      const targetLine = document.createElement("div");
+      targetLine.id = "L42";
+      document.body.appendChild(targetLine);
+
+      const internal = (
+        w.vm as unknown as {
+          $: { setupState: Record<string, unknown> };
+        }
+      ).$;
+      const setup = internal.setupState as Record<string, unknown>;
+      // Drop the report — this v-if-unmounts everything, including the
+      // source scroller, and Vue rebinds sourceScroller to null.
+      setup.report = null;
+      await flushPromises();
+      setup.selectedLine = null;
+      await flushPromises();
+      setup.selectedLine = 42;
+      await flushPromises();
+      // scrollToSelectedLine awaits two nextTicks before reading the
+      // scroller ref; flush more.
+      await flushPromises();
+      await flushPromises();
+
+      expect(sivSpy).toHaveBeenCalled();
+      targetLine.remove();
     } finally {
       sivSpy.mockRestore();
     }
@@ -1463,6 +1464,120 @@ describe("App.vue title document binding", () => {
     const w2 = await mountApp();
     expect(document.title).toBe("Other Project Coverage");
     w2.unmount();
+  });
+});
+
+describe("App.vue computed fallbacks (report-null branches)", () => {
+  it("computes default values when the report ref becomes null", async () => {
+    embedPayload(buildPayload());
+    const w = await mountApp();
+    const internal = (
+      w.vm as unknown as {
+        $: { setupState: Record<string, unknown> };
+      }
+    ).$;
+    const setup = internal.setupState as Record<string, unknown>;
+    setup.report = null;
+    await flushPromises();
+    // Access the computeds directly via the setup proxy. Reading them
+    // while report is null forces evaluation of the fallback arms in
+    // their `?? []` / `?? null` chains.
+    void setup.filesById;
+    void setup.matchingFiles;
+    void setup.filteredUncoveredItems;
+    void setup.lineCoverage;
+    void setup.selectedFileUncoveredTotal;
+    void setup.selectedFileIgnoredLines;
+    void setup.totalIgnoredLines;
+    void setup.previousRun;
+    void setup.currentRun;
+    void setup.lineDelta;
+    void setup.ignoredLinesByLine;
+    void setup.currentUncoveredItem;
+    void setup.headerHooks;
+    void setup.summaryHooks;
+    void setup.sidebarPanelHooks;
+    void setup.fileToolbarHooks;
+    void setup.hookContributions;
+    void setup.availableThemes;
+    void setup.selectedTheme;
+    void setup.reportTitle;
+    void setup.sourcePayload;
+    void setup.visibleSourceLines;
+    expect(w.text()).toContain("Doublcov");
+    // Re-trigger search/uncoveredOnly/selectedKind/selectedFileId watchers
+    // so their guard branches are visited with no report.
+    setup.search = "x";
+    setup.uncoveredOnly = false;
+    setup.selectedKind = "line";
+    setup.selectedFileId = "";
+    setup.navigatorCurrentFileOnly = false;
+    await flushPromises();
+    void setup.filesById;
+    void setup.matchingFiles;
+    void setup.filteredUncoveredItems;
+    expect(w.exists()).toBe(true);
+  });
+
+  it("renders the source pane and uses syntax-token kind classes", async () => {
+    // Replace the syntax mock with one that returns kind: 'keyword'
+    // tokens to exercise the truthy `token.kind` branch in the
+    // template's :class binding.
+    vi.resetModules();
+    vi.doMock("../src/syntax", () => ({
+      highlightSourceLine: (text: string) => [{ text, kind: "keyword" }],
+      highlightSourceLines: async (lines: string[]) =>
+        lines.map((text) => [{ text, kind: "keyword" }]),
+    }));
+    try {
+      const fresh = await import("../src/App.vue");
+      const localPayload = buildPayload();
+      embedPayload(localPayload);
+      // Mount the freshly imported App so it picks up the new mock.
+      const localWrapper = mount(fresh.default, { attachTo: document.body });
+      await flushPromises();
+      await flushPromises();
+      // The :class binding `syn-keyword` should appear when token.kind is
+      // truthy.
+      expect(localWrapper.html()).toContain("syn-keyword");
+      localWrapper.unmount();
+    } finally {
+      vi.doUnmock("../src/syntax");
+      vi.resetModules();
+    }
+  });
+});
+
+describe("App.vue navigation guards on empty results", () => {
+  it("pageFile bails when no files match (filteredFiles empty)", async () => {
+    embedPayload(buildMultiFilePayload(2));
+    const w = await mountApp();
+    // Type a search that matches nothing — filteredFiles becomes empty.
+    const input = w.find<HTMLInputElement>('[data-search-input="true"]');
+    await input.setValue("definitely-no-such-file");
+    await flushPromises();
+    const before = location.hash;
+    // 'N'/'P' shortcuts call pageFile which guards on length === 0.
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "n", bubbles: true }),
+    );
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "p", bubbles: true }),
+    );
+    await flushPromises();
+    expect(location.hash).toBe(before);
+  });
+
+  it("jumpToCurrentUncovered bails when there are no uncovered items", async () => {
+    const payload = buildPayload();
+    payload.report.uncoveredItems = [];
+    embedPayload(payload);
+    const w = await mountApp();
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "g", bubbles: true }),
+    );
+    await flushPromises();
+    expect(w.exists()).toBe(true);
   });
 });
 

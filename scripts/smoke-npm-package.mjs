@@ -81,6 +81,7 @@ try {
       ".doublcov/history.json",
       "--name",
       "Package Smoke",
+      "--no-open",
     ],
     projectDir,
   );

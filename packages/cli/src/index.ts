@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseCommand, helpText } from "./args.js";
 import { buildReport } from "./build.js";
@@ -57,7 +58,10 @@ export async function run(
 function isDirectExecution(): boolean {
   if (!process.argv[1]) return false;
   try {
-    return process.argv[1] === fileURLToPath(import.meta.url);
+    return (
+      realpathSync(process.argv[1]) ===
+      realpathSync(fileURLToPath(import.meta.url))
+    );
   } catch {
     // fileURLToPath only throws for non-file-protocol URLs; import.meta.url
     // is always a file:// URL when this module is loaded by Node, so this
