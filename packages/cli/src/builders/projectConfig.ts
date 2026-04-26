@@ -273,7 +273,9 @@ async function firstExisting(
 
 function parseSimpleToml(text: string): Map<string, Record<string, unknown>> {
   const rootSection: Record<string, unknown> = {};
-  const sections = new Map<string, Record<string, unknown>>([["", rootSection]]);
+  const sections = new Map<string, Record<string, unknown>>([
+    ["", rootSection],
+  ]);
   let current = rootSection;
   const rawLines = text.split(/\r?\n/);
   for (let index = 0; index < rawLines.length; index += 1) {

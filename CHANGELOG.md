@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+Hardens the CLI, report pipeline, and static viewer while tightening release quality gates.
+
+- Improved project config parsing, CLI validation, LCOV/diagnostic parsing, static report serving, and several report edge cases.
+- Expanded automated verification with broader unit coverage, property-based fuzzing, Playwright E2E coverage, and mutation testing for core logic.
+- Added release quality tooling for ESLint, knip, madge, and publish verification, and refreshed related CI/workflow behavior.
+
 ## 0.3.2
 
 Fixes CI coverage generation from fresh checkouts by building the core package before workspace LCOV tests consume its package exports.

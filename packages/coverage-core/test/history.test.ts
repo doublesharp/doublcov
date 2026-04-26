@@ -110,8 +110,6 @@ describe("appendHistoryRun", () => {
     const result = appendHistoryRun(history, baseReport);
     expect(result.runs).toHaveLength(100);
     expect(result.runs[0]?.id).toBe("old-1");
-    expect(result.runs.at(-1)?.id).toBe(
-      "run-2026-04-24T00:00:00.000Z",
-    );
+    expect(result.runs.at(-1)?.id).toBe("run-2026-04-24T00:00:00.000Z");
   });
 });

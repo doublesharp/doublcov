@@ -62,12 +62,20 @@ describe("highlightSourceLines async highlighter", () => {
   }, 15_000);
 
   it("returns rows for json", async () => {
-    const rows = await highlightSourceLines([`{`, `  "name": "x"`, `}`], "p.json", "light");
+    const rows = await highlightSourceLines(
+      [`{`, `  "name": "x"`, `}`],
+      "p.json",
+      "light",
+    );
     expect(rows.length).toBe(3);
   }, 15_000);
 
   it("falls back to per-line highlighting for unknown extensions (no shiki language)", async () => {
-    const rows = await highlightSourceLines([`anything`, `goes here`], "f.unknown", "dark");
+    const rows = await highlightSourceLines(
+      [`anything`, `goes here`],
+      "f.unknown",
+      "dark",
+    );
     expect(rows.length).toBe(2);
     expect(rows[0]?.[0]?.text).toBe("anything");
     expect(rows[1]?.[0]?.text).toBe("goes here");

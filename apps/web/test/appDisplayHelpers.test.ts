@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { CoverageStatus, UncoveredItem } from "@0xdoublesharp/doublcov-core";
+import type {
+  CoverageStatus,
+  UncoveredItem,
+} from "@0xdoublesharp/doublcov-core";
 import {
   coverageClass,
   displayUncoveredItemLabel,

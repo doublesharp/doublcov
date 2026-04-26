@@ -95,11 +95,12 @@ describe("registerDiagnosticParser", () => {
 
 describe("resolveDiagnosticParser", () => {
   it("exposes the built-in parser ids and labels", () => {
-    expect(DIAGNOSTIC_PARSERS.slice(0, 2).map(({ id, label }) => [id, label]))
-      .toEqual([
-        ["foundry-debug", "Foundry debug coverage"],
-        ["foundry-bytecode", "Foundry bytecode coverage"],
-      ]);
+    expect(
+      DIAGNOSTIC_PARSERS.slice(0, 2).map(({ id, label }) => [id, label]),
+    ).toEqual([
+      ["foundry-debug", "Foundry debug coverage"],
+      ["foundry-bytecode", "Foundry bytecode coverage"],
+    ]);
   });
 
   it("returns undefined for an unknown id", () => {
