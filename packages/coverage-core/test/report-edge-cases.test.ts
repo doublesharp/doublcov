@@ -478,3 +478,72 @@ end_of_record`,
     expect(bundle.report.files[0]?.id.endsWith("-")).toBe(false);
   });
 });
+
+describe("buildCoverageBundle - mangled symbols out of source bounds", () => {
+  it("falls back to a synthetic label for rust mangled symbols when the FN line is past the end of the source", () => {
+    // The mangled symbol points at line 50 of a 2-line file. Every
+    // sourceLines[index] / sourceLines[current] access in
+    // findNearbySourceFunctionName therefore yields undefined, exercising the
+    // `?? ""` fallbacks on the rust branch (lines 340, 344) and the backward
+    // scan (line 350).
+    const bundle = buildCoverageBundle({
+      lcov: `SF:src/oob.rs
+FN:50,_RNvCs1234_3lib9not_there
+FNDA:0,_RNvCs1234_3lib9not_there
+DA:50,0
+end_of_record`,
+      sourceFiles: [
+        { path: "src/oob.rs", content: "// only two lines\n// of source\n" },
+      ],
+    });
+    const fnItem = bundle.report.uncoveredItems.find(
+      (item) => item.kind === "function",
+    );
+    expect(fnItem?.label).toBe("Function at line 50");
+  });
+
+  it("falls back to a synthetic label for non-rust mangled symbols when the FN line is past the end of the source", () => {
+    // Same out-of-bounds scenario, but the file is C++ so we exercise the
+    // non-rust branch of parseSourceFunctionName via the backward scan
+    // (line 350's `?? ""`).
+    const bundle = buildCoverageBundle({
+      lcov: `SF:src/oob.cpp
+FN:50,_Z9branchingv
+FNDA:0,_Z9branchingv
+DA:50,0
+end_of_record`,
+      sourceFiles: [
+        { path: "src/oob.cpp", content: "// only two lines\n// of source\n" },
+      ],
+    });
+    const fnItem = bundle.report.uncoveredItems.find(
+      (item) => item.kind === "function",
+    );
+    expect(fnItem?.label).toBe("Function at line 50");
+  });
+});
+
+describe("buildCoverageBundle - mergeTaken null on the right", () => {
+  it("merges branch.taken correctly when the first run has a number and the second run is null", () => {
+    // Mirrors the existing "null + number" merge test, but with the operands
+    // swapped so we exercise mergeTaken's `right ?? 0` fallback (right === null
+    // path on line 306).
+    const bundle = buildCoverageBundle({
+      lcov: `SF:src/merge.ts
+DA:1,1
+BRDA:1,0,0,5
+end_of_record
+SF:src/merge.ts
+DA:1,1
+BRDA:1,0,0,-
+end_of_record`,
+      sourceFiles: [{ path: "src/merge.ts", content: "x;\n" }],
+    });
+    // 5 + null = 5; the branch should be reported as taken.
+    expect(bundle.report.files[0]?.totals.branches).toMatchObject({
+      found: 1,
+      hit: 1,
+    });
+    expect(bundle.report.files[0]?.lines[0]?.branches[0]?.taken).toBe(5);
+  });
+});

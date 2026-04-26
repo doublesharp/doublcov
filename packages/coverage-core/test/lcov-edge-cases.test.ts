@@ -214,4 +214,18 @@ end_of_record`);
     expect(record?.lines.get(1)).toBe(1);
     expect(record?.totals.lines.found).toBe(2);
   });
+
+  it("rejects DA hit counts that exceed Number.MAX_SAFE_INTEGER", () => {
+    // The regex in parseNonNegativeInteger admits any non-negative integer
+    // string, but values beyond 2^53-1 lose precision when converted via
+    // Number(). The parser should reject them rather than silently store a
+    // rounded value. 9007199254740993 == MAX_SAFE_INTEGER + 2, which JavaScript
+    // rounds to 9007199254740992 — both fail Number.isSafeInteger.
+    const [record] = parseLcov(`SF:src/Foo.ts
+DA:1,9007199254740993
+DA:2,42
+end_of_record`);
+    expect(record?.lines.has(1)).toBe(false);
+    expect(record?.lines.get(2)).toBe(42);
+  });
 });
