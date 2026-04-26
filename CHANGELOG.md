@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+Fixes the standalone-binary release build so v0.4.x SEA artifacts can ship.
+
+- Replaced top-level `await` in the bin entry with a fire-and-forget call so the SEA build's CJS bundle compiles. `run()` already catches every error and sets `process.exitCode`, so the await wasn't doing useful work.
+- Aligned ESLint type-aware rules between `.ts` source files and `.vue` files so CI doesn't surface a wall of `no-unsafe-*` errors when type resolution collapses to `any` in the GitHub-hosted runner environment.
+
 ## 0.4.0
 
 Hardens the CLI, report pipeline, and static viewer while tightening release quality gates.
