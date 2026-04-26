@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { promises as fsPromises } from "node:fs";
 import {
   mkdir,
   mkdtemp,
@@ -146,6 +147,17 @@ describe("readJsonIfPresent", () => {
     expect(await readJsonIfPresent(missing)).toBeUndefined();
   });
 
+  it("rethrows non-ENOENT read errors (e.g. EISDIR when path is a directory)", async () => {
+    // Pointing at a directory makes fs.readFile throw EISDIR. The helper must
+    // propagate that — silently swallowing non-ENOENT failures would mask
+    // real I/O problems behind a confusing "file missing" code path.
+    const dir = path.join(tempRoot, "as-dir");
+    await mkdir(dir, { recursive: true });
+    await expect(readJsonIfPresent(dir)).rejects.toMatchObject({
+      code: expect.stringMatching(/EISDIR|EACCES/),
+    });
+  });
+
   it("includes the file path in the error when JSON is malformed", async () => {
     const bad = path.join(tempRoot, "bad.json");
     await writeFile(bad, "{ not json }", "utf8");
@@ -246,7 +258,7 @@ describe("readSourceFiles", () => {
     }
   });
 
-  it("falls back to absolute path when a file resolves outside the root", async () => {
+  it("does not include LCOV-discovered include paths outside the root", async () => {
     const otherRoot = await realpath(
       await mkdtemp(path.join(tmpdir(), "doublcov-other-")),
     );
@@ -257,6 +269,25 @@ describe("readSourceFiles", () => {
         extensions: [".ts"],
         includePaths: [path.join(otherRoot, "outside.ts")],
       });
+      expect(files).toEqual([]);
+    } finally {
+      await rm(otherRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("includes an outside file when the user explicitly passes it as a source", async () => {
+    const otherRoot = await realpath(
+      await mkdtemp(path.join(tmpdir(), "doublcov-explicit-other-")),
+    );
+    try {
+      await writeFile(path.join(otherRoot, "outside.ts"), "x\n", "utf8");
+      const files = await readSourceFiles(
+        [path.join(otherRoot, "outside.ts")],
+        {
+          root: tempRoot,
+          extensions: [".ts"],
+        },
+      );
       expect(files).toHaveLength(1);
       expect(files[0]?.path).toBe(
         path.join(otherRoot, "outside.ts").replaceAll(path.sep, "/"),
@@ -327,6 +358,91 @@ describe("readSourceFiles", () => {
     ).rejects.toMatchObject({
       code: expect.stringMatching(/ENAMETOOLONG|EILSEQ|EINVAL/),
     });
+  });
+
+  it("allows a child symlink whose realpath equals the project root (boundary case)", async () => {
+    // A nested symlink whose target IS the project root itself resolves to
+    // realRoot, exercising the `target === realRoot` short-circuit inside
+    // isInsideRealRoot. Without that branch, a path.relative(root, root) of
+    // "" would be discarded as "outside the root" and the file would be
+    // silently dropped.
+    const srcDir = path.join(tempRoot, "src");
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(path.join(srcDir, "real.ts"), "ok\n", "utf8");
+    // src/back -> tempRoot (the root itself). realpath(back) === realRoot.
+    await symlink(tempRoot, path.join(srcDir, "back"));
+
+    const files = await readSourceFiles(["src"], {
+      root: tempRoot,
+      extensions: [".ts"],
+    });
+    // Should not crash, should still include the real file.
+    expect(files.map((file) => file.path)).toContain("src/real.ts");
+  });
+
+  it("falls back to the input path when fs.realpath throws on a directory entry", async () => {
+    // Simulate a transient realpath failure on a directory entry (e.g.
+    // EACCES on a sub-directory whose stat already succeeded). collectFiles
+    // must NOT propagate the error — it falls back to the input path so the
+    // walk can continue.
+    const srcDir = path.join(tempRoot, "src");
+    const childDir = path.join(srcDir, "child");
+    await mkdir(childDir, { recursive: true });
+    await writeFile(path.join(childDir, "leaf.ts"), "x\n", "utf8");
+
+    const realRealpath = fsPromises.realpath.bind(fsPromises);
+    const spy = vi
+      .spyOn(fsPromises, "realpath")
+      .mockImplementation(async (target, options) => {
+        const targetStr = typeof target === "string" ? target : String(target);
+        // Force the directory's realpath to fail; let everything else pass.
+        if (targetStr === childDir) {
+          const err = new Error("simulated EACCES") as NodeJS.ErrnoException;
+          err.code = "EACCES";
+          throw err;
+        }
+        return realRealpath(target, options);
+      });
+    try {
+      const files = await readSourceFiles(["src"], {
+        root: tempRoot,
+        extensions: [".ts"],
+      });
+      // The leaf is reachable because the fallback uses the literal input
+      // path, which is inside the project root.
+      expect(files.map((file) => file.path)).toContain("src/child/leaf.ts");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("falls back to the input path when fs.realpath throws on a file entry", async () => {
+    const srcDir = path.join(tempRoot, "src");
+    await mkdir(srcDir, { recursive: true });
+    const target = path.join(srcDir, "leaf.ts");
+    await writeFile(target, "x\n", "utf8");
+
+    const realRealpath = fsPromises.realpath.bind(fsPromises);
+    const spy = vi
+      .spyOn(fsPromises, "realpath")
+      .mockImplementation(async (input, options) => {
+        const inputStr = typeof input === "string" ? input : String(input);
+        if (inputStr === target) {
+          const err = new Error("simulated EACCES") as NodeJS.ErrnoException;
+          err.code = "EACCES";
+          throw err;
+        }
+        return realRealpath(input, options);
+      });
+    try {
+      const files = await readSourceFiles(["src"], {
+        root: tempRoot,
+        extensions: [".ts"],
+      });
+      expect(files.map((file) => file.path)).toContain("src/leaf.ts");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("treats a root that is itself a symlink as the canonical root via realpath", async () => {

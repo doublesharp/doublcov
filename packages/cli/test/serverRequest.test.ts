@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { promises as fsPromises } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -170,6 +171,59 @@ describe("serveRequest", () => {
     const result = await fetchPath(reportRoot, makeState(), "/%ZZbad");
     expect(result.status).toBe(500);
     expect(result.body).toBe("Internal server error");
+  });
+
+  it("returns 500 when fs.realpath fails with a non-ENOENT error (e.g. EACCES)", async () => {
+    // The realpath catch must distinguish ENOENT (404) from anything else,
+    // which has to bubble up to the outer catch and produce a 500. A
+    // permission error on a real file system path is the canonical case.
+    const realRealpath = fsPromises.realpath.bind(fsPromises);
+    const targetPath = path.join(reportRoot, "asset.js");
+    const spy = vi
+      .spyOn(fsPromises, "realpath")
+      .mockImplementation(async (input, options) => {
+        const inputStr = typeof input === "string" ? input : String(input);
+        if (inputStr === targetPath) {
+          const err = new Error("simulated EACCES") as NodeJS.ErrnoException;
+          err.code = "EACCES";
+          throw err;
+        }
+        return realRealpath(input, options);
+      });
+    try {
+      const result = await fetchPath(reportRoot, makeState(), "/asset.js");
+      expect(result.status).toBe(500);
+      expect(result.body).toBe("Internal server error");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("returns 404 when the file vanishes between realpath and stat (race)", async () => {
+    // If a file exists at realpath time but is unlinked before fs.stat runs,
+    // the outer catch converts the resulting ENOENT into a 404 rather than a
+    // 500. Simulate this by making fs.stat fail with ENOENT for a path that
+    // realpath happily resolved.
+    const realStat = fsPromises.stat.bind(fsPromises);
+    const targetPath = path.join(reportRoot, "asset.js");
+    const spy = vi
+      .spyOn(fsPromises, "stat")
+      .mockImplementation(async (input, options) => {
+        const inputStr = typeof input === "string" ? input : String(input);
+        if (inputStr === targetPath) {
+          const err = new Error("vanished") as NodeJS.ErrnoException;
+          err.code = "ENOENT";
+          throw err;
+        }
+        return realStat(input, options);
+      });
+    try {
+      const result = await fetchPath(reportRoot, makeState(), "/asset.js");
+      expect(result.status).toBe(404);
+      expect(result.body).toBe("Not found");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("redirects /__doublcov/events with the right SSE headers", async () => {

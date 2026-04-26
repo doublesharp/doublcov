@@ -488,13 +488,10 @@ describe("hardhat builder prepareRun", () => {
     expect(run.lcov).toBe("coverage/lcov.info");
   });
 
-  it("respects an explicit lcov override", async () => {
-    const run = await hardhatBuilder.prepareRun(
-      builderOptions({ lcov: "out/hardhat.lcov" }),
-    );
-    expect(run.lcov).toBe("out/hardhat.lcov");
-    // The command does not currently force the lcov path on Hardhat itself.
-    expect(run.args).toEqual(["hardhat", "coverage"]);
+  it("rejects an explicit lcov override because Hardhat writes coverage/lcov.info", async () => {
+    await expect(
+      hardhatBuilder.prepareRun(builderOptions({ lcov: "out/hardhat.lcov" })),
+    ).rejects.toThrow(/custom --lcov paths are not supported/);
   });
 });
 
@@ -666,6 +663,24 @@ describe("readBuilderProjectDefaults edge cases", () => {
     expect(defaults.sources).toEqual(["contracts", "vendor"]);
   });
 
+  it("accepts unquoted bareword entries in foundry.toml src arrays", async () => {
+    // Strict TOML requires quoted strings, but real foundry.toml files in the
+    // wild sometimes ship unquoted barewords. The lenient parser must accept
+    // them and surface them as plain strings rather than dropping them.
+    const root = await mkdtemp(path.join(tmpdir(), "doublcov-foundry-bare-"));
+    await writeFile(
+      path.join(root, "foundry.toml"),
+      ["[profile.default]", "src = [contracts, vendor]"].join("\n"),
+      "utf8",
+    );
+    const defaults = await readBuilderProjectDefaults(
+      "foundry",
+      foundryBuilder,
+      root,
+    );
+    expect(defaults.sources).toEqual(["contracts", "vendor"]);
+  });
+
   it("ignores comments after values in foundry.toml without breaking quoted strings", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "doublcov-foundry-comm-"));
     // Both a line-trailing comment AND a hash inside the quoted string.
@@ -673,7 +688,7 @@ describe("readBuilderProjectDefaults edge cases", () => {
       path.join(root, "foundry.toml"),
       [
         "[profile.default]",
-        '# this is a leading comment',
+        "# this is a leading comment",
         'src = "contracts" # trailing comment',
       ].join("\n"),
       "utf8",
@@ -690,10 +705,7 @@ describe("readBuilderProjectDefaults edge cases", () => {
     const root = await mkdtemp(path.join(tmpdir(), "doublcov-foundry-hash-"));
     await writeFile(
       path.join(root, "foundry.toml"),
-      [
-        "[profile.default]",
-        'src = "with#hash"',
-      ].join("\n"),
+      ["[profile.default]", 'src = "with#hash"'].join("\n"),
       "utf8",
     );
     const defaults = await readBuilderProjectDefaults(
@@ -827,10 +839,7 @@ describe("readBuilderProjectDefaults edge cases", () => {
     const root = await mkdtemp(path.join(tmpdir(), "doublcov-foundry-1l-"));
     await writeFile(
       path.join(root, "foundry.toml"),
-      [
-        "[profile.default]",
-        'src = ["contracts", "vendor"]',
-      ].join("\n"),
+      ["[profile.default]", 'src = ["contracts", "vendor"]'].join("\n"),
       "utf8",
     );
     const defaults = await readBuilderProjectDefaults(
@@ -851,7 +860,7 @@ describe("readBuilderProjectDefaults edge cases", () => {
         "",
         "[profile.ci]",
         'src = "ci-src"',
-        'optimizer = false',
+        "optimizer = false",
       ].join("\n"),
       "utf8",
     );
@@ -871,11 +880,7 @@ describe("readBuilderProjectDefaults edge cases", () => {
     const root = await mkdtemp(path.join(tmpdir(), "doublcov-foundry-bool-"));
     await writeFile(
       path.join(root, "foundry.toml"),
-      [
-        "[profile.default]",
-        "via_ir = false",
-        'src = "contracts"',
-      ].join("\n"),
+      ["[profile.default]", "via_ir = false", 'src = "contracts"'].join("\n"),
       "utf8",
     );
     const defaults = await readBuilderProjectDefaults(
@@ -905,7 +910,9 @@ describe("readBuilderProjectDefaults edge cases", () => {
   });
 
   it("vitest config with coverage:false (not an object) yields no reportsDirectory", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "doublcov-vitest-disabled-"));
+    const root = await mkdtemp(
+      path.join(tmpdir(), "doublcov-vitest-disabled-"),
+    );
     await writeFile(
       path.join(root, "vitest.config.ts"),
       [
@@ -1021,7 +1028,9 @@ describe("readBuilderProjectDefaults edge cases", () => {
 });
 
 describe("resolveBuilderOptions branches", () => {
-  function baseOptions(overrides: Partial<BuilderOptions> = {}): BuilderOptions {
+  function baseOptions(
+    overrides: Partial<BuilderOptions> = {},
+  ): BuilderOptions {
     return builderOptions({
       explicit: {
         lcov: false,
@@ -1356,7 +1365,9 @@ describe("runCoverageBuilder argument quoting", () => {
     const printed = chunks.join("");
     // The literal "'\\''" sequence is how POSIX shell escapes a single quote
     // inside a single-quoted string. The arg must round-trip safely.
-    expect(printed).toContain(String.raw`'console.log('\''hi'\''); process.exit(4)'`);
+    expect(printed).toContain(
+      String.raw`'console.log('\''hi'\''); process.exit(4)'`,
+    );
   });
 });
 
@@ -1445,5 +1456,4 @@ describe("runCoverageBuilder cleanup behaviors", () => {
       if (index !== -1) coverageBuilders.splice(index, 1);
     }
   });
-
 });

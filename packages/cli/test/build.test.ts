@@ -403,6 +403,66 @@ describe("report config", () => {
     expect(config.customization).toEqual({ defaultTheme: "dark" });
   });
 
+  it("clears the report mode when the user explicitly omits --mode", () => {
+    // explicit.mode=true with options.mode=undefined means "the user
+    // intentionally overrode the config and chose no mode" — the resolver
+    // must NOT fall back to config.mode in that case.
+    const result = resolveBuildOptions(
+      {
+        lcov: "x.info",
+        sources: [],
+        sourceExtensions: [],
+        out: "out",
+        history: undefined,
+        port: 0,
+        timeoutMs: 0,
+        diagnostics: [],
+        explicit: { mode: true },
+      },
+      { mode: "static" },
+    );
+    expect(result.mode).toBeUndefined();
+  });
+
+  it("falls back to config.name when CLI did not pass --name", () => {
+    // Branch coverage: config.name flows into the resolved name without an
+    // explicit override on the CLI side.
+    const result = resolveBuildOptions(
+      {
+        lcov: "x.info",
+        sources: [],
+        sourceExtensions: [],
+        out: "out",
+        history: undefined,
+        port: 0,
+        timeoutMs: 0,
+        diagnostics: [],
+        explicit: {},
+      },
+      { name: "from-config" },
+    );
+    expect(result.name).toBe("from-config");
+  });
+
+  it("uses CLI --name when explicitly set, even with a config name present", () => {
+    const result = resolveBuildOptions(
+      {
+        lcov: "x.info",
+        sources: [],
+        sourceExtensions: [],
+        out: "out",
+        history: undefined,
+        port: 0,
+        timeoutMs: 0,
+        diagnostics: [],
+        name: "from-cli",
+        explicit: { name: true },
+      },
+      { name: "from-config" },
+    );
+    expect(result.name).toBe("from-cli");
+  });
+
   it("lets CLI build options override doublcov config fields", () => {
     expect(
       resolveBuildOptions(
@@ -626,6 +686,16 @@ describe("buildReport end-to-end", () => {
       await readFile(path.join(result.outDir, "data", "report.json"), "utf8"),
     );
     expect(report.projectName).toBe(path.basename(workspace));
+  });
+
+  it("propagates non-ENOENT errors when reading package.json (e.g. EISDIR)", async () => {
+    // If package.json exists as a directory (or any non-ENOENT readFile
+    // error), name inference must surface the failure rather than silently
+    // pretending the file is missing — that would hide real problems.
+    await mkdir(path.join(workspace, "package.json"), { recursive: true });
+    await expect(buildReport(baseOptions())).rejects.toMatchObject({
+      code: expect.stringMatching(/EISDIR|EACCES/),
+    });
   });
 
   it("does not crash the build when package.json contains invalid JSON", async () => {

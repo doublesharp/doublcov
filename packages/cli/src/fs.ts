@@ -92,16 +92,19 @@ export async function readSourceFiles(
   } catch {
     realRoot = root;
   }
+  const allowedRealRoots = await realPathsForRoots(sourceRoots, realRoot);
   const inputFiles = await collectFiles(
     [...sourceRoots],
     sourceRoots,
     root,
     realRoot,
+    allowedRealRoots,
     visited,
   );
   const includedFiles = await collectExistingFiles(
     options.includePaths ?? [],
     root,
+    realRoot,
   );
   const files = [...new Set([...inputFiles, ...includedFiles])];
 
@@ -129,6 +132,7 @@ async function collectFiles(
   sourceRoots: Set<string>,
   root: string,
   realRoot: string,
+  allowedRealRoots: Set<string>,
   visited: Set<string>,
 ): Promise<string[]> {
   const found: string[] = [];
@@ -167,6 +171,7 @@ async function collectFiles(
         sourceRoots,
         root,
         realRoot,
+        allowedRealRoots,
         visited,
       );
       found.push(...nested);
@@ -177,11 +182,35 @@ async function collectFiles(
       } catch {
         realFilePath = input;
       }
-      if (!isInsideRealRoot(realFilePath, realRoot)) continue;
+      if (!isInsideAnyRealRoot(realFilePath, allowedRealRoots)) continue;
       found.push(input);
     }
   }
   return found;
+}
+
+async function realPathsForRoots(
+  roots: Set<string>,
+  realRoot: string,
+): Promise<Set<string>> {
+  const resolved = new Set<string>([realRoot]);
+  await Promise.all(
+    [...roots].map(async (root) => {
+      try {
+        resolved.add(await fs.realpath(root));
+      } catch {
+        // Missing source roots are ignored later by collectFiles.
+      }
+    }),
+  );
+  return resolved;
+}
+
+function isInsideAnyRealRoot(target: string, realRoots: Set<string>): boolean {
+  for (const realRoot of realRoots) {
+    if (isInsideRealRoot(target, realRoot)) return true;
+  }
+  return false;
 }
 
 function isInsideRealRoot(target: string, realRoot: string): boolean {
@@ -193,6 +222,7 @@ function isInsideRealRoot(target: string, realRoot: string): boolean {
 async function collectExistingFiles(
   filePaths: string[],
   root: string,
+  realRoot: string,
 ): Promise<string[]> {
   const found: string[] = [];
   for (const filePath of filePaths) {
@@ -201,7 +231,9 @@ async function collectExistingFiles(
       : path.resolve(root, filePath);
     try {
       const stat = await fs.stat(absolutePath);
-      if (stat.isFile()) found.push(absolutePath);
+      if (!stat.isFile()) continue;
+      const realFilePath = await fs.realpath(absolutePath);
+      if (isInsideRealRoot(realFilePath, realRoot)) found.push(absolutePath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }

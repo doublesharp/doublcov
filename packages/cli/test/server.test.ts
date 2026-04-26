@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { promises as fsPromises } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -238,6 +239,36 @@ describe("serveReport lifecycle", () => {
     await expect(
       serveReport(reportRoot, { timeoutMs: 100, open: false }),
     ).rejects.toBeDefined();
+  });
+
+  it("throws a clear error when the bound address is a unix socket (not AddressInfo)", async () => {
+    // server.address() returns a string when the server is bound to a UNIX
+    // pipe rather than a TCP port. serveReport assumes TCP, so it must fail
+    // loudly rather than silently emit a malformed URL. We patch
+    // http.Server.prototype.address so it returns a string after listen()
+    // has bound the socket — listen()'s callback still fires normally.
+    await writeFile(
+      path.join(reportRoot, "index.html"),
+      "<html></html>",
+      "utf8",
+    );
+    const original = http.Server.prototype.address;
+    http.Server.prototype.address = function (this: http.Server) {
+      const real = original.call(this);
+      // Only swap once we are actually bound (real returns AddressInfo).
+      return typeof real === "object" && real !== null ? "/tmp/fake.sock" : real;
+    } as typeof http.Server.prototype.address;
+    const stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    try {
+      await expect(
+        serveReport(reportRoot, { timeoutMs: 100, open: false }),
+      ).rejects.toThrow(/local server address/);
+    } finally {
+      http.Server.prototype.address = original;
+      stdoutSpy.mockRestore();
+    }
   });
 });
 

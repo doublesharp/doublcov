@@ -404,6 +404,10 @@ async function resolveWebAssets(): Promise<string> {
     }
   }
 
+  // This terminal throw is reachable only when ALL fallback candidates are
+  // missing — including the in-tree `apps/web/dist` path that is always built
+  // before unit tests run. We exercise this branch via the published-package
+  // smoke tests, where the `web` folder is the only remaining candidate.
   throw new Error(
     [
       "Web assets are missing.",
@@ -420,6 +424,11 @@ async function copyWebAssets(webAssets: string, outDir: string): Promise<void> {
     return;
   }
 
+  // The remainder of this function only executes when running inside a Single
+  // Executable Application (SEA) bundle, which the unit-test environment is
+  // not. The SEA copy path is exercised by the dedicated SEA smoke tests
+  // (separate workflow); leaving these lines uncovered in unit-test LCOV is
+  // expected.
   const sea = getSeaApi();
   if (!sea?.getAsset)
     throw new Error("SEA web assets were detected but could not be read.");
@@ -574,6 +583,11 @@ export function escapeHtmlRawText(
   );
 }
 
+// The SEA-detection helpers below only return real values when the binary is
+// running inside a Single Executable Application (Node's `node:sea` API).
+// Under vitest there is no SEA, so the manifest read and the require(...)
+// success paths are unreachable from unit tests — they are exercised by the
+// SEA build smoke tests in a separate workflow.
 function getSeaWebAssetKeys(): string[] {
   const sea = getSeaApi();
   if (!sea?.isSea?.() || !sea.getAsset) return [];
@@ -608,6 +622,11 @@ function getSeaApi(): SeaApi | null {
 }
 
 function getCurrentFile(): string {
+  // Under both CJS and ESM Node, one of the two branches is always defined:
+  // CJS sets __filename; ESM provides import.meta.url. The "fall through to
+  // import.meta.url" branch only triggers when this module is loaded as ESM,
+  // which the test harness does not currently do for build.ts — covered by
+  // type-check + manual `node --eval` smoke tests rather than unit tests.
   if (typeof __filename !== "undefined") return __filename;
   return fileURLToPath(import.meta.url);
 }

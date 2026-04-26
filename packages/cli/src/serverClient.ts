@@ -1,6 +1,9 @@
 import { shellQuote } from "./serverHelpers.js";
 
-export function injectServerLeasePrompt(html: string, reportDir: string): string {
+export function injectServerLeasePrompt(
+  html: string,
+  reportDir: string,
+): string {
   const restartCommand = `doublcov open ${shellQuote(reportDir)}`;
   const script = buildLeasePromptScript(restartCommand);
   return html.includes("</body>")
@@ -33,10 +36,8 @@ function buildLeasePromptScript(restartCommand: string): string {
     const seconds = total % 60;
     return minutes > 0 ? minutes + "m " + String(seconds).padStart(2, "0") + "s" : seconds + "s";
   };
-  let serverConfirmed = false;
   const render = (status) => {
     if (!status || !status.timeoutMs) return;
-    serverConfirmed = true;
     if (status.remainingMs > warningWindowMs) {
       root.hidden = true;
       return;
@@ -45,10 +46,6 @@ function buildLeasePromptScript(restartCommand: string): string {
     text.textContent = "Local report server stops in " + format(status.remainingMs) + ".";
   };
   const stopped = () => {
-    if (!serverConfirmed) {
-      root.remove();
-      return;
-    }
     root.hidden = false;
     text.textContent = "The local report server has stopped. Run doublcov open again to reload source data.";
     command.textContent = restartCommand;
