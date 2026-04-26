@@ -255,6 +255,79 @@ end_of_record`,
       ]),
     );
   });
+
+  it("parses complex Rust, Swift, Go, Python, and C++ declarations near mangled symbols", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `TN:
+SF:src/native.rs
+FN:2,_RNvCs123_6native10run_native
+FNDA:0,_RNvCs123_6native10run_native
+DA:2,0
+end_of_record
+TN:
+SF:src/View.swift
+FN:1,_$s4View6renderSiyF
+FNDA:0,_$s4View6renderSiyF
+DA:1,0
+end_of_record
+TN:
+SF:src/worker.go
+FN:1,_Z8Registerv
+FNDA:0,_Z8Registerv
+DA:1,0
+end_of_record
+TN:
+SF:src/tasks.py
+FN:2,_Z8run_taskv
+FNDA:0,_Z8run_taskv
+DA:2,0
+end_of_record
+TN:
+SF:src/widget.cpp
+FN:2,_Z7computev
+FNDA:0,_Z7computev
+DA:2,0
+end_of_record`,
+      sourceFiles: [
+        {
+          path: "src/native.rs",
+          content: [
+            "#[no_mangle]",
+            'pub(crate) async unsafe extern "C" fn run_native() {}',
+            "",
+          ].join("\n"),
+        },
+        {
+          path: "src/View.swift",
+          content: "public static final func renderThing() -> Int { 1 }\n",
+        },
+        {
+          path: "src/worker.go",
+          content: "func (w *Worker[T]) Register(v T) {}\n",
+        },
+        {
+          path: "src/tasks.py",
+          content: "@decorator\nasync def run_task():\n    return None\n",
+        },
+        {
+          path: "src/widget.cpp",
+          content:
+            "namespace ui {\nWidget::Result Widget::compute(int value) const noexcept {\nreturn {};\n}\n}\n",
+        },
+      ],
+    });
+    const labelsByPath = new Map(
+      bundle.report.uncoveredItems
+        .filter((item) => item.kind === "function")
+        .map((item) => [item.filePath, item.label]),
+    );
+
+    expect(labelsByPath.get("src/native.rs")).toBe("run_native()");
+    expect(labelsByPath.get("src/View.swift")).toBe("renderThing()");
+    expect(labelsByPath.get("src/worker.go")).toBe("Register()");
+    expect(labelsByPath.get("src/tasks.py")).toBe("run_task()");
+    expect(labelsByPath.get("src/widget.cpp")).toBe("compute()");
+  });
 });
 
 describe("buildCoverageBundle function label fallbacks", () => {

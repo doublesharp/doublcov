@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCoverageBundle } from "../src/report.js";
+import { buildCoverageBundle, normalizePath } from "../src/report.js";
 
 describe("buildCoverageBundle source file matching", () => {
   it("matches on suffix when the LCOV path is absolute and the source path is repo-relative", () => {
@@ -15,6 +15,12 @@ end_of_record`,
         (diagnostic) => diagnostic.source === "doublcov",
       ),
     ).toHaveLength(0);
+    expect(bundle.sourcePayloads[0]?.lines).toEqual(["console.log('hi');", ""]);
+    expect(bundle.report.files[0]).toMatchObject({
+      path: "/abs/work/repo/src/foo.ts",
+      displayPath: "src/foo.ts",
+      lineCount: 2,
+    });
   });
 
   it("matches on basename when no path or suffix match exists and the basename is unique", () => {
@@ -30,6 +36,7 @@ end_of_record`,
         (diagnostic) => diagnostic.source === "doublcov",
       ),
     ).toHaveLength(0);
+    expect(bundle.sourcePayloads[0]?.lines).toEqual(["x;", ""]);
   });
 
   it("does not match by basename when multiple files share a name", () => {
@@ -139,6 +146,12 @@ end_of_record`,
 });
 
 describe("buildCoverageBundle path normalization", () => {
+  it("normalizes Windows separators and only strips leading dot-slash prefixes", () => {
+    expect(normalizePath(".\\src\\foo.ts")).toBe("src/foo.ts");
+    expect(normalizePath("./src\\foo.ts")).toBe("src/foo.ts");
+    expect(normalizePath("src/./foo.ts")).toBe("src/./foo.ts");
+  });
+
   it("stores LCOV paths inside the project root as repo-relative paths", () => {
     const bundle = buildCoverageBundle({
       lcov: `TN:
@@ -174,6 +187,32 @@ end_of_record`,
     ).toHaveLength(0);
   });
 
+  it("normalizes project-rooted source paths before matching LCOV records", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `SF:/work/repo/src/rooted.ts
+DA:1,1
+end_of_record`,
+      sourceFiles: [
+        { path: "/work/repo/src/rooted.ts", content: "rooted();\n" },
+      ],
+      projectRoot: "/work/repo",
+    });
+
+    expect(bundle.report.files[0]).toMatchObject({
+      path: "src/rooted.ts",
+      displayPath: "src/rooted.ts",
+    });
+    expect(bundle.sourcePayloads[0]).toMatchObject({
+      path: "src/rooted.ts",
+      lines: ["rooted();", ""],
+    });
+    expect(
+      bundle.report.diagnostics.filter(
+        (diagnostic) => diagnostic.source === "doublcov",
+      ),
+    ).toHaveLength(0);
+  });
+
   it("returns just the basename when the LCOV path equals the project root exactly", () => {
     const bundle = buildCoverageBundle({
       lcov: `SF:/work/repo/lone-file.ts
@@ -198,6 +237,20 @@ end_of_record`,
     expect(bundle.report.files[0]?.path).toBe("src/foo.ts");
   });
 
+  it("collapses repeated separators when producing source payload slugs", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `SF:src////nested---file.ts
+DA:1,1
+end_of_record`,
+      sourceFiles: [],
+    });
+
+    expect(bundle.report.files[0]?.id).toBe("0001-src-nested-file-ts");
+    expect(bundle.report.files[0]?.sourceDataPath).toBe(
+      "data/files/0001-src-nested-file-ts.json",
+    );
+  });
+
   it("produces a stable file id slug even for paths with only special characters", () => {
     const bundle = buildCoverageBundle({
       lcov: `SF:///
@@ -206,7 +259,9 @@ end_of_record`,
       sourceFiles: [],
     });
 
-    expect(bundle.report.files[0]?.id).toMatch(/^0001-(file|.+)$/);
-    expect(bundle.report.files[0]?.id.endsWith("-")).toBe(false);
+    expect(bundle.report.files[0]?.id).toBe("0001-file");
+    expect(bundle.report.files[0]?.sourceDataPath).toBe(
+      "data/files/0001-file.json",
+    );
   });
 });

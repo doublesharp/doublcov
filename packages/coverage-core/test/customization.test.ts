@@ -53,12 +53,12 @@ describe("sanitizeCoverageReportCustomization", () => {
     const result = sanitizeCoverageReportCustomization({
       themes: [
         {
-          id: "ci",
-          label: "CI",
+          id: " ci ",
+          label: " CI ",
           mode: "dark",
           tokens: {
-            bg: "#101010",
-            "code-bg": "rgb(0, 0, 0)",
+            bg: " #101010 ",
+            "code-bg": " rgb(0, 0, 0) ",
             unknown: "#fff",
             __proto__: "#000",
             border: "url(javascript:alert(1))",
@@ -202,11 +202,21 @@ describe("isSafeThemeTokenValue", () => {
     expect(isSafeThemeTokenValue("  #abcdef  ")).toBe(true);
   });
 
+  it("rejects partial hex color matches", () => {
+    expect(isSafeThemeTokenValue("x#abcdef")).toBe(false);
+    expect(isSafeThemeTokenValue("#abcdef suffix")).toBe(false);
+  });
+
   it("accepts rgb/rgba/hsl/hsla functional notation", () => {
     expect(isSafeThemeTokenValue("rgb(0, 0, 0)")).toBe(true);
     expect(isSafeThemeTokenValue("rgba(255, 255, 255, 0.5)")).toBe(true);
     expect(isSafeThemeTokenValue("hsl(180, 50%, 50%)")).toBe(true);
     expect(isSafeThemeTokenValue("hsla(180, 50%, 50%, 0.5)")).toBe(true);
+  });
+
+  it("rejects functional color notation with leading or trailing non-whitespace text", () => {
+    expect(isSafeThemeTokenValue("prefix rgb(0, 0, 0)")).toBe(false);
+    expect(isSafeThemeTokenValue("rgb(0, 0, 0) suffix")).toBe(false);
   });
 
   it("accepts simple named colors but not multi-word identifiers", () => {
@@ -273,6 +283,13 @@ describe("sanitizeCoverageHref", () => {
     expect(sanitizeCoverageHref("\\\\evil.com")).toBeUndefined();
     expect(sanitizeCoverageHref("/\\evil.com")).toBeUndefined();
     expect(sanitizeCoverageHref("\\/evil.com")).toBeUndefined();
+  });
+
+  it("does not reject safe relative paths that merely contain slashes later", () => {
+    expect(sanitizeCoverageHref("docs\\windows-path")).toBe(
+      "docs\\windows-path",
+    );
+    expect(sanitizeCoverageHref("docs/posix-path")).toBe("docs/posix-path");
   });
 
   it("returns undefined when URL parsing throws on malformed input", () => {

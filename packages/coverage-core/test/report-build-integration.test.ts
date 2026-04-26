@@ -60,6 +60,11 @@ describe("buildCoverageBundle report integration", () => {
     expect(bundle.report.uncoveredItems.map((item) => item.kind)).toEqual(
       expect.arrayContaining(["line", "function", "branch"]),
     );
+    expect(bundle.report.files[0]?.searchText).toContain("increment");
+    expect(bundle.report.files[0]?.searchText).toContain("contract counter");
+    expect(bundle.report.files[0]?.sourceDataPath).toBe(
+      "data/files/0001-src-counter-sol.json",
+    );
     expect(bundle.report.history.runs).toHaveLength(1);
     expect(bundle.report.diagnostics[0]).toMatchObject({
       source: "foundry-debug",
@@ -240,5 +245,15 @@ end_of_record`,
         label: "CI run",
       },
     );
+    expect(bundle.report.history).toMatchObject({
+      schemaVersion: 1,
+      runs: [
+        expect.objectContaining({
+          totals: expect.objectContaining({
+            lines: expect.objectContaining({ found: 4, hit: 2 }),
+          }),
+        }),
+      ],
+    });
   });
 });

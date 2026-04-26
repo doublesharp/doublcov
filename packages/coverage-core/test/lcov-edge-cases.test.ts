@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { parseLcov } from "../src/lcov.js";
 
 describe("parseLcov edge cases", () => {
+  it("returns no records for empty input or records without a source file", () => {
+    expect(parseLcov("")).toEqual([]);
+    expect(parseLcov("DA:1,1\nend_of_record")).toEqual([]);
+  });
+
   it("rejects DA records with negative line numbers", () => {
     const [record] = parseLcov(`SF:src/Foo.ts
 DA:-1,1
@@ -53,6 +58,16 @@ end_of_record`);
     expect(record?.lines.get(4)).toBe(7);
   });
 
+  it("accepts zero hit counts but rejects zero line numbers", () => {
+    const [record] = parseLcov(`SF:src/Foo.ts
+DA:0,1
+DA:1,0
+end_of_record`);
+    expect(record?.lines.has(0)).toBe(false);
+    expect(record?.lines.get(1)).toBe(0);
+    expect(record?.totals.lines).toMatchObject({ found: 1, hit: 0 });
+  });
+
   it("flushes a record when SF appears again before end_of_record", () => {
     // Two SF records inside one block: should be treated as separate records.
     const records = parseLcov(`SF:src/a.ts
@@ -68,6 +83,13 @@ end_of_record`);
     expect(a?.lines.has(2)).toBe(false);
     expect(b?.lines.get(2)).toBe(2);
     expect(b?.lines.has(1)).toBe(false);
+  });
+
+  it("does not emit a blank record before the first source file", () => {
+    const records = parseLcov(`SF:src/a.ts
+DA:1,1
+end_of_record`);
+    expect(records.map((record) => record.sourceFile)).toEqual(["src/a.ts"]);
   });
 
   it("emits a record even when end_of_record is missing", () => {
@@ -113,6 +135,17 @@ end_of_record`);
     expect(record?.branches[0]).toMatchObject({ line: 3, taken: 1 });
   });
 
+  it("rejects BRDA records that are missing block or branch ids", () => {
+    const [record] = parseLcov(`SF:src/Foo.ts
+BRDA:1,0
+BRDA:2,0,1,1
+end_of_record`);
+    expect(record?.branches).toEqual([
+      { id: "0", line: 2, block: "0", branch: "1", taken: 1 },
+    ]);
+    expect(record?.totals.branches).toMatchObject({ found: 1, hit: 1 });
+  });
+
   it("preserves unicode and arbitrary characters in source paths", () => {
     const path = "src/日本/ファイル ☃.ts";
     const [record] = parseLcov(`SF:${path}
@@ -146,6 +179,24 @@ end_of_record`);
       line: 10,
       hits: 0,
     });
+  });
+
+  it("trims FN names and updates duplicate function declarations in place", () => {
+    const [record] = parseLcov(`SF:src/Foo.ts
+FN:10,  spaced  
+FN:20,spaced
+FNDA:2,spaced
+end_of_record`);
+    expect(record?.functions).toEqual([{ name: "spaced", line: 20, hits: 2 }]);
+    expect(record?.totals.functions).toMatchObject({ found: 1, hit: 1 });
+  });
+
+  it("trims FNDA names before matching an existing FN", () => {
+    const [record] = parseLcov(`SF:src/Foo.ts
+FN:10,spaced
+FNDA:3,  spaced  
+end_of_record`);
+    expect(record?.functions).toEqual([{ name: "spaced", line: 10, hits: 3 }]);
   });
 
   it("silently drops FN records that lack the comma-separated name", () => {

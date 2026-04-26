@@ -37,6 +37,24 @@ end_of_record`,
       hit: 1,
       percent: 100,
     });
+    expect(bundle.report.files[0]?.lines[0]).toMatchObject({
+      line: 1,
+      hits: 1,
+      status: "covered",
+    });
+    expect(bundle.report.files[0]?.functions).toEqual([
+      expect.objectContaining({ name: "work", line: 1, hits: 1 }),
+    ]);
+    expect(bundle.report.files[0]?.lines[0]?.branches).toEqual([
+      expect.objectContaining({
+        id: "0",
+        line: 1,
+        block: "0",
+        branch: "0",
+        taken: 1,
+      }),
+    ]);
+    expect(bundle.report.uncoveredItems).toEqual([]);
   });
 
   it("keeps overloaded functions with the same name but different lines as distinct entries", () => {
@@ -149,5 +167,57 @@ end_of_record`,
       hit: 0,
     });
     expect(bundle.report.files[0]?.lines[0]?.branches[0]?.taken).toBeNull();
+  });
+
+  it("keeps merged uncovered functions and branches in the report model", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `SF:src/branchy.ts
+FN:1,maybe
+FNDA:0,maybe
+DA:1,1
+BRDA:1,0,0,0
+BRDA:1,0,1,2
+end_of_record`,
+      sourceFiles: [
+        { path: "src/branchy.ts", content: "function maybe() {}\n" },
+      ],
+    });
+
+    expect(bundle.report.files[0]?.totals.functions).toMatchObject({
+      found: 1,
+      hit: 0,
+    });
+    expect(bundle.report.files[0]?.totals.branches).toMatchObject({
+      found: 2,
+      hit: 1,
+    });
+    expect(bundle.report.files[0]?.uncovered.functions).toEqual([
+      expect.objectContaining({ name: "maybe", line: 1, hits: 0 }),
+    ]);
+    expect(bundle.report.files[0]?.uncovered.branches).toEqual([
+      expect.objectContaining({
+        id: "0",
+        line: 1,
+        block: "0",
+        branch: "0",
+        taken: 0,
+      }),
+    ]);
+    expect(bundle.report.uncoveredItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "function:0001-src-branchy-ts:maybe:1",
+          kind: "function",
+          label: "maybe",
+          detail: "Function was not called",
+        }),
+        expect.objectContaining({
+          id: "branch:0001-src-branchy-ts:1:0:0",
+          kind: "branch",
+          label: "Branch 0.0",
+          detail: "Branch path was not taken",
+        }),
+      ]),
+    );
   });
 });

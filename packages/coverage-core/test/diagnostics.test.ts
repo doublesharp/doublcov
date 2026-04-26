@@ -14,9 +14,42 @@ const baseline = DIAGNOSTIC_PARSERS.slice();
 
 afterEach(() => {
   DIAGNOSTIC_PARSERS.splice(0, DIAGNOSTIC_PARSERS.length, ...baseline);
+  for (const parser of baseline) {
+    registerDiagnosticParser(parser);
+  }
 });
 
 describe("registerDiagnosticParser", () => {
+  it("replaces a built-in parser in place and keeps parser order stable", () => {
+    const replacement = {
+      id: "foundry-debug",
+      label: "Foundry debug replacement",
+      parse: () => [
+        {
+          id: "temporary",
+          source: "foundry-debug" as const,
+          severity: "info" as const,
+          message: "replacement parser ran",
+        },
+      ],
+    };
+    registerDiagnosticParser(replacement);
+
+    expect(DIAGNOSTIC_PARSERS).toHaveLength(baseline.length);
+    expect(DIAGNOSTIC_PARSERS[0]).toBe(replacement);
+    expect(DIAGNOSTIC_PARSERS[1]?.id).toBe("foundry-bytecode");
+    expect(resolveDiagnosticParser("foundry-debug")).toBe(replacement);
+    expect(
+      parseDiagnostics([{ parser: "foundry-debug", content: "ignored" }]),
+    ).toMatchObject([
+      {
+        id: "foundry-debug-1-1",
+        source: "foundry-debug",
+        message: "replacement parser ran",
+      },
+    ]);
+  });
+
   it("registers a new parser exactly once", () => {
     registerDiagnosticParser({
       id: "custom-once",
@@ -61,6 +94,14 @@ describe("registerDiagnosticParser", () => {
 });
 
 describe("resolveDiagnosticParser", () => {
+  it("exposes the built-in parser ids and labels", () => {
+    expect(DIAGNOSTIC_PARSERS.slice(0, 2).map(({ id, label }) => [id, label]))
+      .toEqual([
+        ["foundry-debug", "Foundry debug coverage"],
+        ["foundry-bytecode", "Foundry bytecode coverage"],
+      ]);
+  });
+
   it("returns undefined for an unknown id", () => {
     expect(resolveDiagnosticParser("nope-not-real")).toBeUndefined();
   });
@@ -84,8 +125,12 @@ describe("parseDiagnostics", () => {
     ]);
     const unknown = diagnostics.find((d) => d.source === "totally-unknown");
     const known = diagnostics.find((d) => d.source === "foundry-debug");
+    expect(unknown?.id).toBe("diagnostic-parser-1");
     expect(unknown?.severity).toBe("warning");
-    expect(unknown?.message).toMatch(/unknown/i);
+    expect(unknown?.message).toBe(
+      'Unknown diagnostic parser "totally-unknown".',
+    );
+    expect(known?.id).toBe("foundry-debug-2-1");
     expect(known?.filePath).toBe("src/A.sol");
   });
 
@@ -115,7 +160,10 @@ describe("parseDiagnostics", () => {
       (diagnostic) =>
         diagnostic.source === "explodes" && diagnostic.severity === "warning",
     );
-    expect(failure?.message).toMatch(/kaboom|fail/i);
+    expect(failure?.id).toBe("diagnostic-parser-2-error");
+    expect(failure?.message).toBe(
+      'Diagnostic parser "explodes" failed: kaboom',
+    );
   });
 
   it("ignores all-whitespace content and produces no diagnostics", () => {
@@ -139,6 +187,11 @@ describe("parseDiagnostics", () => {
       { parser: "foundry-debug", content: "src/C.sol:3: c" },
     ]);
     const ids = diagnostics.map((diagnostic) => diagnostic.id);
+    expect(ids).toEqual([
+      "foundry-debug-1-1",
+      "foundry-debug-1-2",
+      "foundry-debug-2-1",
+    ]);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -161,6 +214,40 @@ describe("parseDiagnostics", () => {
     expect(diagnostics.map((diagnostic) => diagnostic.line)).toEqual([
       7, 12, 3,
     ]);
+  });
+
+  it("extracts a Solidity file path without requiring a line number", () => {
+    const [diagnostic] = parseDiagnostics([
+      { parser: "foundry-debug", content: "src/NoLine.sol uncovered" },
+    ]);
+    expect(diagnostic).toMatchObject({
+      id: "foundry-debug-1-1",
+      filePath: "src/NoLine.sol",
+      message: "src/NoLine.sol uncovered",
+    });
+    expect(diagnostic).not.toHaveProperty("line");
+  });
+
+  it("trims diagnostic lines and drops blank lines before numbering", () => {
+    const diagnostics = parseFoundryDebugReport(
+      "  src/A.sol:1: alpha  \n\n\t src/B.sol:2: beta \t",
+    );
+    expect(diagnostics.map(({ id, message }) => [id, message])).toEqual([
+      ["foundry-debug-1", "src/A.sol:1: alpha"],
+      ["foundry-debug-2", "src/B.sol:2: beta"],
+    ]);
+  });
+
+  it("preserves diagnostics that do not contain a Solidity location", () => {
+    const [diagnostic] = parseFoundryDebugReport("compiler warning only");
+    expect(diagnostic).toMatchObject({
+      id: "foundry-debug-1",
+      source: "foundry-debug",
+      severity: "info",
+      message: "compiler warning only",
+    });
+    expect(diagnostic).not.toHaveProperty("filePath");
+    expect(diagnostic).not.toHaveProperty("line");
   });
 });
 

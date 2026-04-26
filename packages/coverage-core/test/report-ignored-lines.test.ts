@@ -103,6 +103,29 @@ end_of_record`,
       hit: 0,
       percent: 100,
     });
+    expect(bundle.report.files[0]?.functions).toEqual([]);
+    expect(bundle.report.files[0]?.lines).toEqual([
+      expect.objectContaining({
+        line: 1,
+        hits: 1,
+        branches: [],
+        status: "covered",
+      }),
+      expect.objectContaining({
+        line: 2,
+        hits: 0,
+        branches: [],
+        status: "ignored",
+      }),
+    ]);
+    expect(bundle.report.files[0]?.uncovered).toEqual({
+      lines: [],
+      functions: [],
+      branches: [],
+    });
+    expect(bundle.report.files[0]?.ignored.lines).toEqual([
+      { line: 2, reason: "generated", label: "Generated" },
+    ]);
     expect(bundle.report.uncoveredItems).toHaveLength(0);
   });
 
@@ -136,5 +159,52 @@ end_of_record`,
     });
 
     expect(bundle.report.files[0]?.lines[0]?.status).toBe("partial");
+  });
+
+  it("keeps covered line entries sorted and classifies uncovered lines exactly", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `SF:src/order.ts
+DA:3,0
+DA:1,2
+DA:2,0
+end_of_record`,
+      sourceFiles: [
+        {
+          path: "src/order.ts",
+          content: "first();\nsecond();\nthird();\n",
+        },
+      ],
+    });
+
+    expect(
+      bundle.report.files[0]?.lines.map(({ line, hits, status }) => ({
+        line,
+        hits,
+        status,
+      })),
+    ).toEqual([
+      { line: 1, hits: 2, status: "covered" },
+      { line: 2, hits: 0, status: "uncovered" },
+      { line: 3, hits: 0, status: "uncovered" },
+    ]);
+    expect(bundle.report.files[0]?.uncovered.lines).toEqual([2, 3]);
+    expect(bundle.report.uncoveredItems).toEqual([
+      expect.objectContaining({
+        id: "line:0001-src-order-ts:2",
+        kind: "line",
+        filePath: "src/order.ts",
+        line: 2,
+        label: "Line 2",
+        detail: "Line was not executed",
+      }),
+      expect.objectContaining({
+        id: "line:0001-src-order-ts:3",
+        kind: "line",
+        filePath: "src/order.ts",
+        line: 3,
+        label: "Line 3",
+        detail: "Line was not executed",
+      }),
+    ]);
   });
 });

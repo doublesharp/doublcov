@@ -70,6 +70,16 @@ describe("registerLanguageDefinition", () => {
     expect(detectSourceLanguage("a.WEIRD")).toBe("weird");
   });
 
+  it("trims whitespace while normalizing registered extensions", () => {
+    registerLanguageDefinition({
+      id: "spaced-extension",
+      label: "Spaced Extension",
+      extensions: ["  SpaceD  ", "  .Trimmed  "],
+    });
+    expect(detectSourceLanguage("a.spaced")).toBe("spaced-extension");
+    expect(detectSourceLanguage("a.trimmed")).toBe("spaced-extension");
+  });
+
   it("lets a new language claim an extension previously owned by another", () => {
     // .ts is owned by typescript by default — registering a new language with
     // .ts should redirect lookups to the new language, not return typescript.
@@ -102,6 +112,9 @@ describe("registerLanguageDefinition", () => {
     expect(
       LANGUAGE_DEFINITIONS.some((language) => language.id === "desync-lang"),
     ).toBe(true);
+    expect(
+      LANGUAGE_DEFINITIONS.some((language) => language.id === "markdown"),
+    ).toBe(true);
   });
 
   it("does not duplicate the language in LANGUAGE_DEFINITIONS when re-registered", () => {
@@ -121,6 +134,59 @@ describe("registerLanguageDefinition", () => {
     expect(occurrences).toHaveLength(1);
     expect(occurrences[0]?.label).toBe("v2");
     expect(detectSourceLanguage("a.dup2")).toBe("dup-lang");
+  });
+
+  it("replaces an existing definition even when it sits at array index one", () => {
+    registerLanguageDefinition({
+      id: "index-one-lang",
+      label: "v1",
+      extensions: [".index-one"],
+    });
+    const index = LANGUAGE_DEFINITIONS.findIndex(
+      (language) => language.id === "index-one-lang",
+    );
+    const [definition] = LANGUAGE_DEFINITIONS.splice(index, 1);
+    if (!definition) throw new Error("index-one-lang was not registered");
+    LANGUAGE_DEFINITIONS.splice(1, 0, definition);
+
+    registerLanguageDefinition({
+      id: "index-one-lang",
+      label: "v2",
+      extensions: [".index-two"],
+    });
+    const occurrences = LANGUAGE_DEFINITIONS.filter(
+      (language) => language.id === "index-one-lang",
+    );
+    expect(occurrences).toHaveLength(1);
+    expect(occurrences[0]?.label).toBe("v2");
+  });
+
+  it("removes stale extension mappings when a language is re-registered", () => {
+    registerLanguageDefinition({
+      id: "moving-lang",
+      label: "Moving Language",
+      extensions: [".before"],
+    });
+    expect(detectSourceLanguage("sample.before")).toBe("moving-lang");
+
+    registerLanguageDefinition({
+      id: "moving-lang",
+      label: "Moving Language",
+      extensions: [".after"],
+    });
+    expect(detectSourceLanguage("sample.before")).toBe("plain");
+    expect(detectSourceLanguage("sample.after")).toBe("moving-lang");
+  });
+
+  it("adds new languages to the public definition list", () => {
+    registerLanguageDefinition({
+      id: "listed-lang",
+      label: "Listed Language",
+      extensions: [".listed"],
+    });
+    expect(
+      LANGUAGE_DEFINITIONS.some((language) => language.id === "listed-lang"),
+    ).toBe(true);
   });
 });
 
@@ -199,6 +265,29 @@ describe("detectIgnoredLines (Solidity assembly)", () => {
     const lines = ['  assembly ("memory-safe") {', "    let x := 1", "  }"];
     const ignored = detectIgnoredLines(lines, "solidity");
     expect(ignored.map((entry) => entry.line)).toEqual([1, 2, 3]);
+  });
+
+  it("matches assembly blocks without whitespace before the opening brace", () => {
+    const lines = ["assembly{", "  let x := 1", "}"];
+    const ignored = detectIgnoredLines(lines, "solidity");
+    expect(ignored.map((entry) => entry.line)).toEqual([1, 2, 3]);
+  });
+
+  it("matches assembly annotations with non-string content", () => {
+    const lines = ["assembly (evmasm) {", "  let x := 1", "}"];
+    const ignored = detectIgnoredLines(lines, "solidity");
+    expect(ignored.map((entry) => entry.line)).toEqual([1, 2, 3]);
+  });
+
+  it("ignores braces inside trailing comments while tracking assembly depth", () => {
+    const lines = [
+      "assembly {",
+      "  // comment with a closing brace }",
+      "  let x := 1",
+      "}",
+    ];
+    const ignored = detectIgnoredLines(lines, "solidity");
+    expect(ignored.map((entry) => entry.line)).toEqual([1, 2, 3, 4]);
   });
 
   it("does not crash on a string literal that ends with a stray backslash", () => {
