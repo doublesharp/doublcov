@@ -20,6 +20,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /work
 COPY --from=build /app/packages/cli/dist /opt/doublcov/dist
+COPY --from=build /app/packages/cli/package.json /opt/doublcov/package.json
 
 RUN printf '#!/bin/sh\nexec node /opt/doublcov/dist/index.js "$@"\n' > /usr/local/bin/doublcov \
   && chmod +x /usr/local/bin/doublcov

@@ -31,3 +31,9 @@ jobs:
 
       - name: Verify publish package
         run: pnpm run verify:publish
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser E2E tests
+        run: pnpm run test:e2e

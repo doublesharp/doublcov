@@ -33,6 +33,12 @@ jobs:
       - name: Verify publish package
         run: pnpm run verify:publish
 
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser E2E tests
+        run: pnpm run test:e2e
+
   binary:
     name: Binary ${{ matrix.asset }}
     needs: verify
@@ -73,7 +79,16 @@ jobs:
 
       - name: Smoke binary
         shell: bash
-        run: packages/cli/dist/bin/${{ matrix.asset }} --help
+        run: |
+          packages/cli/dist/bin/${{ matrix.asset }} --help
+          OUT_DIR="$(mktemp -d)"
+          packages/cli/dist/bin/${{ matrix.asset }} build \
+            --lcov fixtures/simple/lcov.info \
+            --sources fixtures/simple/src \
+            --out "$OUT_DIR" \
+            --no-open
+          test -f "$OUT_DIR/index.html"
+          test -f "$OUT_DIR/data/report.json"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v7
