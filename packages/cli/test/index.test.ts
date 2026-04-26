@@ -131,7 +131,9 @@ describe("main()", () => {
 describe("run()", () => {
   it("writes parseCommand errors to stderr and sets exit code 1", async () => {
     await run(["totally-bogus-cmd"]);
-    expect(stderrChunks.join("")).toMatch(/Unknown command "totally-bogus-cmd"/);
+    expect(stderrChunks.join("")).toMatch(
+      /Unknown command "totally-bogus-cmd"/,
+    );
     expect(process.exitCode).toBe(1);
   });
 

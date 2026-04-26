@@ -286,7 +286,10 @@ function parseSimpleToml(text: string): Map<string, Record<string, unknown>> {
     let valueText = assignment[2];
     // If this is the start of a multi-line array, accumulate until the closing
     // bracket so parseSimpleValue can split entries across lines.
-    if (valueText.trimStart().startsWith("[") && !hasMatchingClosingBracket(valueText)) {
+    if (
+      valueText.trimStart().startsWith("[") &&
+      !hasMatchingClosingBracket(valueText)
+    ) {
       const collected = [valueText];
       while (index + 1 < rawLines.length) {
         index += 1;
@@ -308,7 +311,8 @@ function stripTomlComment(line: string): string {
     const char = line[index];
     if (char === '"' && !inSingle) inDouble = !inDouble;
     else if (char === "'" && !inDouble) inSingle = !inSingle;
-    else if (char === "#" && !inSingle && !inDouble) return line.slice(0, index);
+    else if (char === "#" && !inSingle && !inDouble)
+      return line.slice(0, index);
   }
   return line;
 }

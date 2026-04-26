@@ -15,7 +15,10 @@ export function readEmbeddedReportPayload(): unknown | undefined {
   return readEmbeddedJsonElement(EMBEDDED_REPORT_ELEMENT_ID);
 }
 
-export function readEmbeddedSourcePayloadsRecord(): Record<string, unknown> | null {
+export function readEmbeddedSourcePayloadsRecord(): Record<
+  string,
+  unknown
+> | null {
   const payload = readEmbeddedJsonElement(EMBEDDED_SOURCES_ELEMENT_ID);
   if (!isUnknownRecord(payload)) return null;
   return payload;

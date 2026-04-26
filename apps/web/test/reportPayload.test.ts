@@ -90,6 +90,34 @@ describe("parseReportPayload", () => {
       "data/files/0001-src-index-ts.json",
     );
   });
+
+  it("drops duplicate file ids so app caches and keyed rows stay stable", () => {
+    const report = parseReportPayload({
+      ...baseReport(),
+      files: [
+        baseFile(),
+        {
+          ...baseFile(),
+          path: "src/duplicate.ts",
+          displayPath: "src/duplicate.ts",
+        },
+      ],
+      uncoveredItems: [
+        {
+          id: "u1",
+          kind: "line",
+          fileId: "0001-src-index-ts",
+          filePath: "src/index.ts",
+          line: 1,
+          label: "Line 1",
+          detail: "line",
+        },
+      ],
+    });
+
+    expect(report.files.map((file) => file.path)).toEqual(["src/index.ts"]);
+    expect(report.uncoveredItems).toHaveLength(1);
+  });
 });
 
 describe("parseSourcePayload", () => {
@@ -114,6 +142,21 @@ describe("parseSourcePayload", () => {
           lines: [42],
         },
         "src/index.ts",
+      ),
+    ).toThrow(/malformed/);
+  });
+
+  it("rejects source payloads that do not match the selected report file", () => {
+    expect(() =>
+      parseSourcePayload(
+        {
+          id: "other",
+          path: "src/other.ts",
+          language: "typescript",
+          lines: ["ok"],
+        },
+        "src/index.ts",
+        { id: "file", path: "src/index.ts" },
       ),
     ).toThrow(/malformed/);
   });

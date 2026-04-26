@@ -853,7 +853,6 @@ function readStoredSidePanelWidth(panel: "left" | "right"): number {
     sidePanelDefaultWidth,
   );
 }
-
 </script>
 
 <template>

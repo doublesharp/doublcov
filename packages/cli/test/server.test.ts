@@ -256,7 +256,9 @@ describe("serveReport lifecycle", () => {
     http.Server.prototype.address = function (this: http.Server) {
       const real = original.call(this);
       // Only swap once we are actually bound (real returns AddressInfo).
-      return typeof real === "object" && real !== null ? "/tmp/fake.sock" : real;
+      return typeof real === "object" && real !== null
+        ? "/tmp/fake.sock"
+        : real;
     } as typeof http.Server.prototype.address;
     const stdoutSpy = vi
       .spyOn(process.stdout, "write")

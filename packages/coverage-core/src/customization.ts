@@ -86,7 +86,11 @@ export function isSafeThemeTokenValue(value: string): boolean {
 export function sanitizeCoverageHref(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
-  if (/^[/\\]{2}/.test(trimmed) || /^[/\\]\\/.test(trimmed) || /^\\\//.test(trimmed)) {
+  if (
+    /^[/\\]{2}/.test(trimmed) ||
+    /^[/\\]\\/.test(trimmed) ||
+    /^\\\//.test(trimmed)
+  ) {
     return undefined;
   }
   try {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BuilderOptions } from "../src/args.js";
-import { cp, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,6 +39,32 @@ function builderOptions(
     builderArgs: [],
     ...overrides,
   };
+}
+
+async function writeMinimalWebAssets(root: string): Promise<void> {
+  await mkdir(path.join(root, "assets"), { recursive: true });
+  await writeFile(
+    path.join(root, "index.html"),
+    [
+      "<!doctype html>",
+      "<html>",
+      "<head>",
+      '<link rel="stylesheet" href="./assets/index.css">',
+      "</head>",
+      "<body>",
+      '<div id="app"></div>',
+      '<script type="module" src="./assets/index.js"></script>',
+      "</body>",
+      "</html>",
+    ].join("\n"),
+    "utf8",
+  );
+  await writeFile(path.join(root, "assets", "index.css"), ".app{}\n", "utf8");
+  await writeFile(
+    path.join(root, "assets", "index.js"),
+    'console.log("doublcov test asset");\n',
+    "utf8",
+  );
 }
 
 describe("coverage builder plugins", () => {
@@ -1147,6 +1173,7 @@ describe("runCoverageBuilder success path", () => {
   );
   let workspace: string;
   let originalCwd: string;
+  let originalWebAssetsDir: string | undefined;
   let writeSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
@@ -1154,6 +1181,9 @@ describe("runCoverageBuilder success path", () => {
       await mkdtemp(path.join(tmpdir(), "doublcov-runner-")),
     );
     await cp(FIXTURE_DIR, workspace, { recursive: true });
+    await writeMinimalWebAssets(path.join(workspace, "web-assets"));
+    originalWebAssetsDir = process.env.DOUBLCOV_WEB_ASSETS_DIR;
+    process.env.DOUBLCOV_WEB_ASSETS_DIR = path.join(workspace, "web-assets");
     originalCwd = process.cwd();
     process.chdir(workspace);
     writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
@@ -1161,6 +1191,11 @@ describe("runCoverageBuilder success path", () => {
 
   afterEach(async () => {
     writeSpy.mockRestore();
+    if (originalWebAssetsDir === undefined) {
+      delete process.env.DOUBLCOV_WEB_ASSETS_DIR;
+    } else {
+      process.env.DOUBLCOV_WEB_ASSETS_DIR = originalWebAssetsDir;
+    }
     process.chdir(originalCwd);
     await rm(workspace, { recursive: true, force: true });
   });

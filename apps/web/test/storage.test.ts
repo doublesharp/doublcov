@@ -5,10 +5,12 @@ interface StorageStub extends Storage {
   readonly entries: Map<string, string>;
 }
 
-function createStorageStub(behavior: {
-  getThrows?: Error;
-  setThrows?: Error;
-} = {}): StorageStub {
+function createStorageStub(
+  behavior: {
+    getThrows?: Error;
+    setThrows?: Error;
+  } = {},
+): StorageStub {
   const entries = new Map<string, string>();
   return {
     entries,
@@ -38,7 +40,10 @@ function createStorageStub(behavior: {
 let originalLocalStorage: PropertyDescriptor | undefined;
 
 beforeEach(() => {
-  originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  originalLocalStorage = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "localStorage",
+  );
 });
 
 afterEach(() => {
@@ -69,7 +74,9 @@ describe("readSetting", () => {
 
   it("returns null when reading throws (private mode / SecurityError)", () => {
     installLocalStorage(
-      createStorageStub({ getThrows: new Error("SecurityError: storage blocked") }),
+      createStorageStub({
+        getThrows: new Error("SecurityError: storage blocked"),
+      }),
     );
     expect(() => readSetting("anything")).not.toThrow();
     expect(readSetting("anything")).toBeNull();

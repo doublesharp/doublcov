@@ -61,9 +61,7 @@ describe("mergeThemes", () => {
   });
 
   it("drops candidates without an id or label", () => {
-    const base: CoverageTheme[] = [
-      { id: "ok", label: "OK", tokens: {} },
-    ];
+    const base: CoverageTheme[] = [{ id: "ok", label: "OK", tokens: {} }];
     const custom: CoverageTheme[] = [
       { id: "", label: "Bad", tokens: {} },
       { id: "another", label: "", tokens: {} },

@@ -20,17 +20,33 @@ describe("sanitizeCoverageReportCustomization", () => {
 
   it("returns undefined when no fields produce output", () => {
     expect(sanitizeCoverageReportCustomization({})).toBeUndefined();
-    expect(sanitizeCoverageReportCustomization({ defaultTheme: "" })).toBeUndefined();
-    expect(sanitizeCoverageReportCustomization({ defaultTheme: "   " })).toBeUndefined();
-    expect(sanitizeCoverageReportCustomization({ themes: [], hooks: [], plugins: [] })).toBeUndefined();
-    expect(sanitizeCoverageReportCustomization({ themes: "not-an-array" })).toBeUndefined();
+    expect(
+      sanitizeCoverageReportCustomization({ defaultTheme: "" }),
+    ).toBeUndefined();
+    expect(
+      sanitizeCoverageReportCustomization({ defaultTheme: "   " }),
+    ).toBeUndefined();
+    expect(
+      sanitizeCoverageReportCustomization({
+        themes: [],
+        hooks: [],
+        plugins: [],
+      }),
+    ).toBeUndefined();
+    expect(
+      sanitizeCoverageReportCustomization({ themes: "not-an-array" }),
+    ).toBeUndefined();
   });
 
   it("trims defaultTheme and accepts non-string-truthy with no other fields as undefined", () => {
-    expect(sanitizeCoverageReportCustomization({ defaultTheme: "  light  " })).toEqual({
+    expect(
+      sanitizeCoverageReportCustomization({ defaultTheme: "  light  " }),
+    ).toEqual({
       defaultTheme: "light",
     });
-    expect(sanitizeCoverageReportCustomization({ defaultTheme: 123 })).toBeUndefined();
+    expect(
+      sanitizeCoverageReportCustomization({ defaultTheme: 123 }),
+    ).toBeUndefined();
   });
 
   it("filters malformed themes and keeps tokens that pass the value safety check", () => {
@@ -90,7 +106,11 @@ describe("sanitizeCoverageReportCustomization", () => {
         null,
       ],
       plugins: [
-        { id: "p1", label: "Plugin", hooks: [{ id: "h1", hook: "file:toolbar", label: "H1" }] },
+        {
+          id: "p1",
+          label: "Plugin",
+          hooks: [{ id: "h1", hook: "file:toolbar", label: "H1" }],
+        },
         { id: "  " },
         { id: "p2" },
         { id: "p3", hooks: "not-array" },
@@ -147,7 +167,11 @@ describe("sanitizeCoverageReportCustomization", () => {
       language: "typescript",
       priority: 10,
     });
-    expect(result?.hooks?.[1]).toEqual({ id: "h2", hook: "report:summary", label: "Hook2" });
+    expect(result?.hooks?.[1]).toEqual({
+      id: "h2",
+      hook: "report:summary",
+      label: "Hook2",
+    });
     expect(result?.hooks?.[1]).not.toHaveProperty("priority");
     expect(result?.hooks?.[1]).not.toHaveProperty("content");
   });
@@ -194,7 +218,9 @@ describe("isSafeThemeTokenValue", () => {
   it("rejects anything that could break out of a CSS declaration", () => {
     expect(isSafeThemeTokenValue("")).toBe(false);
     expect(isSafeThemeTokenValue("   ")).toBe(false);
-    expect(isSafeThemeTokenValue("red; background: url(javascript:alert(1))")).toBe(false);
+    expect(
+      isSafeThemeTokenValue("red; background: url(javascript:alert(1))"),
+    ).toBe(false);
     expect(isSafeThemeTokenValue("url(javascript:alert(1))")).toBe(false);
     expect(isSafeThemeTokenValue("expression(alert(1))")).toBe(false);
     expect(isSafeThemeTokenValue("rgb(0,0,0); color: red")).toBe(false);
@@ -211,7 +237,9 @@ describe("sanitizeCoverageHref", () => {
     expect(sanitizeCoverageHref("  https://example.test/docs  ")).toBe(
       "https://example.test/docs",
     );
-    expect(sanitizeCoverageHref("http://example.test")).toBe("http://example.test");
+    expect(sanitizeCoverageHref("http://example.test")).toBe(
+      "http://example.test",
+    );
     expect(sanitizeCoverageHref("mailto:a@b.com")).toBe("mailto:a@b.com");
   });
 
@@ -231,7 +259,9 @@ describe("sanitizeCoverageHref", () => {
     expect(sanitizeCoverageHref("javascript:alert(1)")).toBeUndefined();
     expect(sanitizeCoverageHref("JAVASCRIPT:alert(1)")).toBeUndefined();
     expect(sanitizeCoverageHref("  jaVaScRiPt:alert(1)  ")).toBeUndefined();
-    expect(sanitizeCoverageHref("data:text/html,<script>alert(1)</script>")).toBeUndefined();
+    expect(
+      sanitizeCoverageHref("data:text/html,<script>alert(1)</script>"),
+    ).toBeUndefined();
     expect(sanitizeCoverageHref("vbscript:msgbox(1)")).toBeUndefined();
     expect(sanitizeCoverageHref("file:///etc/passwd")).toBeUndefined();
     expect(sanitizeCoverageHref("tel:+1234")).toBeUndefined();

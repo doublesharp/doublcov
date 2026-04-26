@@ -129,7 +129,9 @@ export function parseBoundedInteger(
   return Math.min(Math.max(parsed, min), max);
 }
 
-export function parseUncoveredKind(value: string | null): UncoveredKind | "all" {
+export function parseUncoveredKind(
+  value: string | null,
+): UncoveredKind | "all" {
   if (value === "line" || value === "branch" || value === "function")
     return value;
   return "all";

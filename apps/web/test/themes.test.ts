@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { CoverageTheme, CoverageThemeMode } from "@0xdoublesharp/doublcov-core";
+import type {
+  CoverageTheme,
+  CoverageThemeMode,
+} from "@0xdoublesharp/doublcov-core";
 import { builtInThemes, themeMode, themeTokens } from "../src/themes";
 
 describe("builtInThemes", () => {
