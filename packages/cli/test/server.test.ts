@@ -9,6 +9,7 @@ import {
   detectReportMode,
   launchBrowser,
   openReport,
+  serveRequest,
   serveReport,
 } from "../src/server.js";
 
@@ -272,6 +273,46 @@ describe("serveReport lifecycle", () => {
       stdoutSpy.mockRestore();
     }
   });
+
+  it("does not print a countdown when the server timeout is disabled", async () => {
+    const stdoutWrites: string[] = [];
+    const stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk: unknown) => {
+        stdoutWrites.push(String(chunk));
+        return true;
+      });
+    const stopTimer = setTimeout(() => {
+      process.emit("SIGINT");
+    }, 100);
+    try {
+      await serveReport(reportRoot, { timeoutMs: 0, open: false, port: 0 });
+    } finally {
+      clearTimeout(stopTimer);
+      stdoutSpy.mockRestore();
+    }
+    expect(stdoutWrites.join("")).not.toContain("Server will stop after");
+  }, 5_000);
+
+  it("uses the default timeout when no timeout is passed", async () => {
+    const stdoutWrites: string[] = [];
+    const stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk: unknown) => {
+        stdoutWrites.push(String(chunk));
+        return true;
+      });
+    const stopTimer = setTimeout(() => {
+      process.emit("SIGTERM");
+    }, 100);
+    try {
+      await serveReport(reportRoot, { open: false, port: 0 });
+    } finally {
+      clearTimeout(stopTimer);
+      stdoutSpy.mockRestore();
+    }
+    expect(stdoutWrites.join("")).toContain("Server will stop after 30m");
+  }, 5_000);
 });
 
 describe("openReport", () => {
@@ -296,6 +337,30 @@ describe("openReport", () => {
 
     const printed = stdoutWrites.some((m) => m.startsWith("Serving "));
     expect(printed).toBe(true);
+  }, 5_000);
+
+  it("passes an explicit static-server port through to the listener", async () => {
+    const indexPath = path.join(reportRoot, "index.html");
+    await writeFile(indexPath, "<html><body>static</body></html>", "utf8");
+
+    const stdoutWrites: string[] = [];
+    const stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk: unknown) => {
+        stdoutWrites.push(String(chunk));
+        return true;
+      });
+    try {
+      await openReport(reportRoot, {
+        mode: "static",
+        port: 0,
+        timeoutMs: 100,
+      });
+    } finally {
+      stdoutSpy.mockRestore();
+    }
+
+    expect(stdoutWrites.join("")).toMatch(/URL: http:\/\/127\.0\.0\.1:\d+\//);
   }, 5_000);
 
   it("opens index.html via the file URL when mode is standalone", async () => {
@@ -331,5 +396,56 @@ describe("openReport", () => {
 
   it("rejects if the report directory has no index.html", async () => {
     await expect(openReport(reportRoot)).rejects.toBeDefined();
+  });
+});
+
+describe("serveRequest lease endpoints", () => {
+  it("keeps an unlimited server unlimited when /__doublcov/extend is requested", async () => {
+    const state = {
+      timeoutMs: 0,
+      deadline: Number.POSITIVE_INFINITY,
+      shutdownListeners: new Set<() => void>(),
+    };
+    const server = http.createServer((req, res) => {
+      void serveRequest(
+        reportRoot,
+        state as unknown as Parameters<typeof serveRequest>[1],
+        req.url ?? "/",
+        res,
+      );
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    try {
+      const address = server.address() as import("node:net").AddressInfo;
+      const result = await new Promise<{ status: number; body: string }>(
+        (resolve, reject) => {
+          http
+            .get(
+              `http://127.0.0.1:${address.port}/__doublcov/extend`,
+              (response) => {
+                const chunks: Buffer[] = [];
+                response.on("data", (chunk: Buffer) => chunks.push(chunk));
+                response.on("end", () => {
+                  resolve({
+                    status: response.statusCode ?? 0,
+                    body: Buffer.concat(chunks).toString("utf8"),
+                  });
+                });
+                response.on("error", reject);
+              },
+            )
+            .on("error", reject);
+        },
+      );
+      expect(result.status).toBe(200);
+      expect(JSON.parse(result.body)).toEqual({
+        timeoutMs: 0,
+        remainingMs: 0,
+      });
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });

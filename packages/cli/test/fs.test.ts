@@ -182,6 +182,18 @@ describe("readSourceFiles", () => {
     expect(paths).toEqual(["src/a.TS", "src/b.ts"]);
   });
 
+  it("ignores empty extension filters while matching valid extensions", async () => {
+    await mkdir(path.join(tempRoot, "src"), { recursive: true });
+    await writeFile(path.join(tempRoot, "src", "f.ts"), "x\n", "utf8");
+
+    const files = await readSourceFiles(["src"], {
+      root: tempRoot,
+      extensions: ["", "   ", ".ts"],
+    });
+
+    expect(files.map((file) => file.path)).toEqual(["src/f.ts"]);
+  });
+
   it("ignores includePaths that do not exist", async () => {
     await mkdir(path.join(tempRoot, "src"), { recursive: true });
     await writeFile(path.join(tempRoot, "src", "real.ts"), "real\n", "utf8");

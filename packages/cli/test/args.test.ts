@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { helpText, parseCommand } from "../src/args.js";
+import {
+  coverageBuilders,
+  registerCoverageBuilder,
+} from "../src/builders/registry.js";
+import type { CoverageBuilderPlugin } from "../src/builders/types.js";
 
 describe("parseCommand", () => {
   it("uses defaults for common build paths", () => {
@@ -511,5 +516,83 @@ describe("parseCommand", () => {
     expect(text).toMatch(/Builder options:/);
     expect(text).toMatch(/Build options:/);
     expect(text).toMatch(/Open options:/);
+  });
+
+  it("parses builder commands with lcov, extensions, mode, and passthrough args", () => {
+    expect(
+      parseCommand([
+        "forge",
+        "--lcov",
+        "build/lcov.info",
+        "--extensions",
+        "sol,vy",
+        "--mode",
+        "static",
+        "--",
+        "--exclude-tests",
+      ]),
+    ).toMatchObject({
+      name: "builder",
+      builder: "forge",
+      options: {
+        lcov: "build/lcov.info",
+        sourceExtensions: ["sol", "vy"],
+        mode: "static",
+        builderArgs: ["--exclude-tests"],
+      },
+    });
+  });
+
+  it("ignores malformed empty-key flags without consuming valid flags", () => {
+    expect(parseCommand(["build", "--=foo", "--lcov", "lcov.info"]))
+      .toMatchObject({
+        name: "build",
+        options: { lcov: "lcov.info" },
+      });
+  });
+
+  it("leaves unknown valueless flags undefined when followed by another flag", () => {
+    expect(parseCommand(["build", "--frobnicate", "--lcov", "lcov.info"]))
+      .toMatchObject({
+        name: "build",
+        options: { lcov: "lcov.info" },
+      });
+  });
+
+  it("skips empty positional tokens when resolving the open report directory", () => {
+    expect(parseCommand(["open", "", "real-report-dir"])).toMatchObject({
+      name: "open",
+      reportDir: "real-report-dir",
+    });
+  });
+
+  it("uses global source defaults when a registered builder has no defaults", () => {
+    const minimalBuilder: CoverageBuilderPlugin = {
+      id: "minimal-defaults-test",
+      aliases: [],
+      label: "Minimal Defaults Test",
+      description: "Has no source defaults",
+      async prepareRun() {
+        return { command: "true", args: [], lcov: "lcov.info" };
+      },
+    };
+    registerCoverageBuilder(minimalBuilder);
+    try {
+      const parsed = parseCommand(["minimal-defaults-test"]);
+      expect(parsed).toMatchObject({
+        name: "builder",
+        builder: "minimal-defaults-test",
+        options: { sources: ["src"] },
+      });
+      if (parsed.name !== "builder") throw new Error("expected builder");
+      expect(parsed.options.sourceExtensions).toEqual(
+        expect.arrayContaining([".ts", ".js"]),
+      );
+    } finally {
+      const index = coverageBuilders.findIndex(
+        (candidate) => candidate.id === "minimal-defaults-test",
+      );
+      if (index !== -1) coverageBuilders.splice(index, 1);
+    }
   });
 });
