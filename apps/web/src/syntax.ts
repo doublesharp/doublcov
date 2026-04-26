@@ -86,7 +86,7 @@ const maxCacheEntries = 12000;
 const tokenCache = new Map<string, SyntaxToken[]>();
 type ShikiHighlighter = Awaited<ReturnType<typeof createHighlighterCore>>;
 
-const shikiThemes = ["github-dark", "github-light"];
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used via `typeof` below to derive the ShikiLanguage union
 const shikiLanguages = [
   "bash",
   "c",

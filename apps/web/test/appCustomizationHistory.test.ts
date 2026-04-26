@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildMultiFilePayload,
   buildPayload,
   embedPayload,
   flushPromises,
@@ -21,7 +20,7 @@ describe("App.vue theme cycling with custom themes", () => {
       ],
     };
     embedPayload(payload);
-    const w = await mountApp();
+    await mountApp();
     // Cycle from default — should eventually visit ci-dark
     const seen = new Set<string>();
     for (let i = 0; i < 10; i++) {
@@ -36,7 +35,7 @@ describe("App.vue theme cycling with custom themes", () => {
   it("falls back to 'dark' if a saved theme is no longer available", async () => {
     localStorage.setItem("doublcov-theme", "missing-theme");
     embedPayload(buildPayload());
-    const w = await mountApp();
+    await mountApp();
     expect(["dark", "light", "contrast", "paper"]).toContain(
       document.documentElement.dataset.theme,
     );
@@ -48,7 +47,7 @@ describe("App.vue theme cycling with custom themes", () => {
     const payload = buildPayload();
     payload.report.customization = { defaultTheme: "light" };
     embedPayload(payload);
-    const w = await mountApp();
+    await mountApp();
     expect(document.documentElement.dataset.theme).toBe("light");
   });
 });

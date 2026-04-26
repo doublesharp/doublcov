@@ -278,9 +278,13 @@ const visibleSourceHighlightKey = computed(() =>
   ].join("\u0001"),
 );
 
+function onKeyboardShortcut(event: KeyboardEvent): void {
+  void handleKeyboardShortcut(event);
+}
+
 onMounted(async () => {
   applyTheme();
-  window.addEventListener("keydown", handleKeyboardShortcut);
+  window.addEventListener("keydown", onKeyboardShortcut);
   window.addEventListener("mousemove", handleNavigatorResizeMove);
   window.addEventListener("mousemove", handleSidePanelResizeMove);
   window.addEventListener("mouseup", stopNavigatorResize);
@@ -310,7 +314,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("keydown", handleKeyboardShortcut);
+  window.removeEventListener("keydown", onKeyboardShortcut);
   window.removeEventListener("mousemove", handleNavigatorResizeMove);
   window.removeEventListener("mousemove", handleSidePanelResizeMove);
   window.removeEventListener("mouseup", stopNavigatorResize);
@@ -468,9 +472,7 @@ async function readReportPayload(): Promise<unknown> {
   return response.json();
 }
 
-function readEmbeddedSourcePayload(
-  sourceDataPath: string,
-): unknown | undefined {
+function readEmbeddedSourcePayload(sourceDataPath: string): unknown {
   embeddedSources ??= readEmbeddedSourcePayloadsRecord();
   return embeddedSources?.[sourceDataPath];
 }

@@ -28,7 +28,7 @@ export function baseFile(): Record<string, unknown> {
   };
 }
 
-export function baseTotals(): Record<string, unknown> {
+function baseTotals(): Record<string, unknown> {
   return {
     lines: { found: 1, hit: 1, percent: 100 },
     functions: { found: 0, hit: 0, percent: 100 },

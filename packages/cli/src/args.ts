@@ -48,7 +48,7 @@ export interface BuilderOptions extends Omit<BuildOptions, "lcov"> {
   builderArgs: string[];
 }
 
-export const DEFAULT_LCOV = "lcov.info";
+const DEFAULT_LCOV = "lcov.info";
 export const DEFAULT_OUT = "coverage/report";
 export const DEFAULT_SOURCES = ["src"];
 const DEFAULT_SOURCE_EXTENSIONS_TEXT = DEFAULT_SOURCE_EXTENSIONS.map(

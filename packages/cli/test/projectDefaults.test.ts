@@ -3,7 +3,6 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { foundryBuilder } from "../src/builders/foundry.js";
-import { hardhatBuilder } from "../src/builders/hardhat.js";
 import { jestBuilder } from "../src/builders/jest.js";
 import {
   deriveReportOut,

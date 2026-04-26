@@ -45,7 +45,9 @@ export async function readJsonIfPresent<T>(
     return JSON.parse(text) as T;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Could not parse JSON at ${filePath}: ${reason}`);
+    throw new Error(`Could not parse JSON at ${filePath}: ${reason}`, {
+      cause: error,
+    });
   }
 }
 

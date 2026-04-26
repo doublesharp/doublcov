@@ -182,7 +182,6 @@ describe("parseDiagnostics through the registry", () => {
       id: "throws-string",
       label: "Throws String",
       parse: () => {
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
         throw "raw-string-error";
       },
     });

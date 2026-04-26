@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { BuilderOptions } from "../src/args.js";
 import { hardhatBuilder } from "../src/builders/hardhat.js";
 import {
-  coverageBuilders,
   registerCoverageBuilder,
   resolveBuilder,
 } from "../src/builders/registry.js";
