@@ -131,6 +131,21 @@ export default tseslint.config(
       ...vue.configs["flat/recommended"].at(-1).rules,
       "vue/multi-word-component-names": "off",
       "vue/html-self-closing": "off",
+      // Match the source-file rule shape — vue files use the same parser
+      // chain via vue-eslint-parser + tseslint.parser, but type resolution
+      // can collapse to `any` under some CI environments and would fire a
+      // wall of unsafe-* errors. Keep the type-aware checks that don't
+      // depend on every member resolving (no-floating-promises etc.) and
+      // turn off the no-unsafe-* family.
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/await-thenable": "error",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-redundant-type-constituents": "warn",
     },
   },
   {
