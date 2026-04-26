@@ -29,6 +29,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint (eslint)
+        run: pnpm run lint
+
+      - name: Lint (circular deps)
+        run: pnpm run lint:circular
+
+      - name: Lint (unused exports / deps via knip)
+        run: pnpm run lint:knip
+
       - name: Verify publish package
         run: pnpm run verify:publish
 

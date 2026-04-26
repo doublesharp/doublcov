@@ -4,6 +4,8 @@ dist-types
 coverage
 .doublcov
 .tmp
+.stryker-tmp
+reports
 playwright-report
 test-results
 *.tsbuildinfo
