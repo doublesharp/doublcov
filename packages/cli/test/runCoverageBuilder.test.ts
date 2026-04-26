@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerCoverageBuilder } from "../src/builders/registry.js";
 import { runCoverageBuilder } from "../src/builders/run.js";
 import type { CoverageBuilderPlugin } from "../src/builders/types.js";
@@ -8,6 +8,16 @@ import {
 } from "./runCoverageBuilderHelpers.js";
 
 describe("runCoverageBuilder failure paths", () => {
+  let writeSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    writeSpy.mockRestore();
+  });
+
   it("throws a clear error when the builder name is unknown", async () => {
     await expect(
       runCoverageBuilder("does-not-exist", builderOptions()),

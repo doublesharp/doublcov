@@ -36,7 +36,7 @@ describe("runCoverageBuilder command logging", () => {
       async prepareRun() {
         return {
           command: "node",
-          args: ["-e", "process.exit(2); rm -rf /", "x|y", "a&&b"],
+          args: ["-e", "process.exit(2); /* rm -rf / */", "x|y", "a&&b"],
           lcov: "/tmp/never-written.lcov",
         };
       },
@@ -51,7 +51,7 @@ describe("runCoverageBuilder command logging", () => {
     }
 
     const printed = chunks.join("");
-    expect(printed).toContain("'process.exit(2); rm -rf /'");
+    expect(printed).toContain("'process.exit(2); /* rm -rf / */'");
     expect(printed).toContain("'x|y'");
     expect(printed).toContain("'a&&b'");
   });
@@ -65,7 +65,7 @@ describe("runCoverageBuilder command logging", () => {
       async prepareRun() {
         return {
           command: "node",
-          args: ["-e", "console.log('hi'); process.exit(4)"],
+          args: ["-e", "void 'hi'; process.exit(4)"],
           lcov: "/tmp/never-written.lcov",
         };
       },
@@ -80,7 +80,7 @@ describe("runCoverageBuilder command logging", () => {
     }
 
     expect(chunks.join("")).toContain(
-      String.raw`'console.log('\''hi'\''); process.exit(4)'`,
+      String.raw`'void '\''hi'\''; process.exit(4)'`,
     );
   });
 });
