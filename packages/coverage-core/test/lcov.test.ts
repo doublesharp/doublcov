@@ -92,6 +92,72 @@ end_of_record`);
     });
   });
 
+  it("collapses Rust v0 mangled monomorphizations that differ only by crate disambiguator", () => {
+    // cargo-llvm-cov emits one FN record per monomorphized instance. When the
+    // same crate is compiled twice (e.g. as a workspace member and as a test
+    // dependency) both compilations contribute records that share the source
+    // line and demangled path but differ in the `Cs<hash>_` disambiguator.
+    // Only one instance is actually executed by tests, so the others appear
+    // as phantom uncovered functions. The parser must collapse them.
+    const [record] = parseLcov(`TN:
+SF:src/lib.rs
+FN:31,_RNvCs3S5nXkB8W4T_19abi_typegen_codegen23generate_contract_files
+FN:31,_RNvCsjmirnLhxYZ2_19abi_typegen_codegen23generate_contract_files
+FNDA:73,_RNvCs3S5nXkB8W4T_19abi_typegen_codegen23generate_contract_files
+FNDA:0,_RNvCsjmirnLhxYZ2_19abi_typegen_codegen23generate_contract_files
+DA:31,73
+end_of_record`);
+
+    expect(record?.functions).toHaveLength(1);
+    expect(record?.functions[0]).toMatchObject({ line: 31, hits: 73 });
+    expect(record?.totals.functions).toMatchObject({ found: 1, hit: 1 });
+  });
+
+  it("does not collapse distinct Rust functions that happen to share a line", () => {
+    // Two genuinely different functions reported at the same line (rare but
+    // possible with macro expansion) must remain distinct.
+    const [record] = parseLcov(`TN:
+SF:src/lib.rs
+FN:10,_RNvCs1234567890a_4mine5alpha
+FN:10,_RNvCs1234567890a_4mine4beta
+FNDA:5,_RNvCs1234567890a_4mine5alpha
+FNDA:0,_RNvCs1234567890a_4mine4beta
+end_of_record`);
+
+    expect(record?.functions).toHaveLength(2);
+    expect(record?.totals.functions).toMatchObject({ found: 2, hit: 1 });
+  });
+
+  it("does not collapse identical Rust symbols that resolve to different lines", () => {
+    const [record] = parseLcov(`TN:
+SF:src/lib.rs
+FN:10,_RNvCs1234567890a_4mine5alpha
+FN:20,_RNvCsabcdef12345_4mine5alpha
+FNDA:5,_RNvCs1234567890a_4mine5alpha
+FNDA:7,_RNvCsabcdef12345_4mine5alpha
+end_of_record`);
+
+    expect(record?.functions).toHaveLength(2);
+    expect(record?.totals.functions).toMatchObject({ found: 2, hit: 2 });
+  });
+
+  it("prefers the executed Rust symbol name when collapsing duplicates", () => {
+    const [record] = parseLcov(`TN:
+SF:src/lib.rs
+FN:31,_RNvCs3S5nXkB8W4T_19abi_typegen_codegen23generate_contract_files
+FN:31,_RNvCsjmirnLhxYZ2_19abi_typegen_codegen23generate_contract_files
+FNDA:0,_RNvCs3S5nXkB8W4T_19abi_typegen_codegen23generate_contract_files
+FNDA:73,_RNvCsjmirnLhxYZ2_19abi_typegen_codegen23generate_contract_files
+DA:31,73
+end_of_record`);
+
+    expect(record?.functions).toHaveLength(1);
+    expect(record?.functions[0]).toMatchObject({
+      name: "_RNvCsjmirnLhxYZ2_19abi_typegen_codegen23generate_contract_files",
+      hits: 73,
+    });
+  });
+
   it("keeps malformed LCOV-like fuzz input bounded and finite", () => {
     let seed = 0xdecafbad;
     for (let caseIndex = 0; caseIndex < 200; caseIndex += 1) {

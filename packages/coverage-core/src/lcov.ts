@@ -145,20 +145,67 @@ function createRecord(): LcovRecord {
 }
 
 function finalizeRecord(record: LcovRecord): LcovRecord {
+  const functions = collapseDuplicateFunctions(record.functions);
   const lineHits = [...record.lines.values()].filter((hits) => hits > 0).length;
-  const functionHits = record.functions.filter((fn) => fn.hits > 0).length;
+  const functionHits = functions.filter((fn) => fn.hits > 0).length;
   const branchHits = record.branches.filter(
     (branch) => (branch.taken ?? 0) > 0,
   ).length;
 
   return {
     ...record,
+    functions,
     totals: {
       lines: makeTotals(record.lines.size, lineHits),
-      functions: makeTotals(record.functions.length, functionHits),
+      functions: makeTotals(functions.length, functionHits),
       branches: makeTotals(record.branches.length, branchHits),
     },
   };
+}
+
+// `cargo-llvm-cov` (and any LCOV writer that emits one record per LLVM
+// instantiation) can produce multiple FN entries that all describe the same
+// source-level function. The Rust workspace case: when a crate is compiled
+// twice — once as the library under test and once as a dependency of another
+// workspace member's tests — both compilations emit a v0-mangled symbol that
+// differs only in the leading `Cs<base62>_` crate disambiguator. The
+// uninstrumented compilation reports zero hits and surfaces in the report as
+// a phantom uncovered function on a fully-covered line.
+//
+// We collapse FN records that share `(line, identity)`, where identity is the
+// symbol with its Rust v0 crate disambiguator stripped. Hits across collapsed
+// records are summed so a non-zero hit in any monomorphization counts the
+// function as covered. Distinct names on the same line (rare but possible
+// with macro expansion) keep their own entries.
+export function collapseDuplicateFunctions(
+  functions: FunctionDetail[],
+): FunctionDetail[] {
+  const byKey = new Map<string, FunctionDetail>();
+  for (const fn of functions) {
+    const key = `${fn.line}\u0000${functionIdentity(fn.name)}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.hits += fn.hits;
+      // Prefer a name with non-zero hits so the rendered label reflects the
+      // monomorphization that actually executed.
+      if (existing.hits === fn.hits && fn.hits > 0) existing.name = fn.name;
+    } else {
+      byKey.set(key, { ...fn });
+    }
+  }
+  return [...byKey.values()];
+}
+
+// Rust v0 symbols start with `_R`, optionally followed by encoding-version
+// bytes, then an optional `Cs<base62>_` crate disambiguator. Stripping the
+// disambiguator yields a stable identity across monomorphizations of the
+// same source path.
+const RUST_V0_DISAMBIGUATOR = /^(_R[a-zA-Z]*)Cs[0-9A-Za-z_]+_/;
+
+function functionIdentity(name: string): string {
+  const match = RUST_V0_DISAMBIGUATOR.exec(name);
+  if (match) return name.replace(RUST_V0_DISAMBIGUATOR, `${match[1]}_`);
+  return name;
 }
 
 function splitOnce(value: string, separator: string): [string, string] {

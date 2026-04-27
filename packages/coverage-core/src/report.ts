@@ -1,7 +1,11 @@
 import { parseDiagnostics } from "./diagnostics.js";
 import { appendHistoryRun } from "./history.js";
 import { detectIgnoredLines, detectSourceLanguage } from "./languages.js";
-import { parseLcov, type LcovRecord } from "./lcov.js";
+import {
+  collapseDuplicateFunctions,
+  parseLcov,
+  type LcovRecord,
+} from "./lcov.js";
 import { addTotals, makeTotals } from "./math.js";
 import type {
   BranchDetail,
@@ -272,7 +276,7 @@ function mergeFunctions(
       byKey.set(key, { ...fn });
     }
   }
-  return [...byKey.values()];
+  return collapseDuplicateFunctions([...byKey.values()]);
 }
 
 function mergeBranches(

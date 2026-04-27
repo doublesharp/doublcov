@@ -89,3 +89,4 @@ For tools that always write `lcov.info` inside a report directory, `--lcov` must
 - **Files missing from the report.** LCOV records source paths as written by the coverage tool. If those paths are absolute or relative to a different root, pass `--sources` for each root or run `doublcov build` from the directory the tool used as its base.
 - **Unknown language renders as plain text.** Add the file extension to `--extensions`. Doublcov will include the file but skip language-aware highlighting.
 - **Multiple LCOV files.** Concatenate them first (`cat a.info b.info > lcov.info`) — the LCOV format is record-delimited and safely concatenable.
+- **Rust LCOV shows duplicate uncovered functions on covered lines.** If the LCOV was produced by an LLVM-based Rust coverage tool, Doublcov collapses duplicate Rust v0 monomorphizations that differ only by crate disambiguator. If duplicates remain, capture a fresh `lcov.info` with a current Doublcov release.

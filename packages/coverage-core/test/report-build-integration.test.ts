@@ -126,6 +126,38 @@ end_of_record`,
     ]);
   });
 
+  it("deduplicates Rust crate-disambiguator variants across LCOV records for the same file", () => {
+    const bundle = buildCoverageBundle({
+      lcov: `TN:
+SF:src/lib.rs
+FN:31,_RNvCs3S5nXkB8W4T_19abi_typegen_codegen23generate_contract_files
+FNDA:73,_RNvCs3S5nXkB8W4T_19abi_typegen_codegen23generate_contract_files
+DA:31,73
+end_of_record
+TN:
+SF:src/lib.rs
+FN:31,_RNvCsjmirnLhxYZ2_19abi_typegen_codegen23generate_contract_files
+FNDA:0,_RNvCsjmirnLhxYZ2_19abi_typegen_codegen23generate_contract_files
+DA:31,0
+end_of_record`,
+      sourceFiles: [
+        {
+          path: "src/lib.rs",
+          content: "pub fn generate_contract_files() {}\n",
+        },
+      ],
+      history: { runs: [] },
+    });
+
+    expect(bundle.report.files).toHaveLength(1);
+    expect(bundle.report.files[0]?.functions).toHaveLength(1);
+    expect(bundle.report.files[0]?.totals.functions).toMatchObject({
+      found: 1,
+      hit: 1,
+    });
+    expect(bundle.report.files[0]?.uncovered.functions).toEqual([]);
+  });
+
   it("supports registered language and diagnostic extensions", () => {
     registerLanguageDefinition({
       id: "example-lang",

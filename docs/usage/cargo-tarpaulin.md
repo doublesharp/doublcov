@@ -84,3 +84,4 @@ doublcov build \
 - **macOS or Windows failures.** Tarpaulin's ptrace engine is Linux-only. Try `--engine llvm`, or switch to [`cargo-llvm-cov`](cargo-llvm-cov.md).
 - **Tests run twice.** Disable parallel tarpaulin invocations from other build steps; tarpaulin reruns the test binary under instrumentation.
 - **LCOV path mismatch.** If you set `--output-dir`, point `--lcov` at the matching path on the manual LCOV path.
+- **Phantom uncovered Rust functions on covered lines.** When Tarpaulin's LLVM-based paths emit duplicate Rust v0 monomorphizations that only differ by crate disambiguator, Doublcov collapses them automatically. If you still see duplicate uncovered functions, confirm you are on a current Doublcov release and capture a fresh LCOV file.

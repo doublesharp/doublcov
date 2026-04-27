@@ -97,4 +97,5 @@ doublcov build \
 
 - **`llvm-tools-preview` missing.** `cargo-llvm-cov` will error during instrumentation. Install with `rustup component add llvm-tools-preview`.
 - **Workspace coverage incomplete.** Pass `-- --workspace` to include all crates.
+- **Phantom uncovered Rust functions on covered lines.** Newer Doublcov builds collapse duplicate Rust v0 monomorphizations that differ only by crate disambiguator, which can happen in workspace builds or when the same crate is compiled in multiple test contexts. If you still see this, regenerate LCOV with a current Doublcov release.
 - **Doctests excluded.** `cargo llvm-cov` does not measure doctests by default; pass `-- --doctests` (requires nightly) when needed.
