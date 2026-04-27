@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.3
+
+Fixes Rust coverage false-positives from duplicate LLVM monomorphization records and tightens the core verification path.
+
+- Collapsed duplicate Rust v0 function entries that differ only by crate disambiguator, both within a single LCOV record and when multiple LCOV records merge into one source file.
+- Prevented phantom uncovered Rust functions from appearing on covered lines in workspace-style LLVM LCOV output.
+- Expanded parser and report integration coverage around duplicate-function handling and replaced the last optional core fixture test with a deterministic in-repo path.
+- Refreshed Rust and generic LCOV troubleshooting docs, plus pinned release examples, for the `v0.4.3` release.
+
 ## 0.4.2
 
 Improves hosted report previews and keeps the release docs aligned with the next tag.

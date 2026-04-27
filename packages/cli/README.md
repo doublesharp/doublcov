@@ -241,7 +241,7 @@ For non-Node projects, use the repository action to download the standalone bina
 ```
 
 Use the moving major action ref for compatible action updates. Omit `version`
-to download the latest GitHub Release binary, or set `version: v0.4.2` to pin
+to download the latest GitHub Release binary, or set `version: v0.4.3` to pin
 the downloaded CLI binary for reproducible CI.
 The action passes `--no-open` by default. Add `--open` to `args` only when the workflow intentionally has a browser-capable environment.
 
